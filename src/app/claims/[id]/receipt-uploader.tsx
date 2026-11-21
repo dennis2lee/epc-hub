@@ -61,7 +61,7 @@ export function ReceiptUploader({ claimId, attachments }: { claimId: string; att
   return (
     <section className="card stack">
       <h2 className="subtitle">
-        2. 영수증 <span className="en">Receipts</span>
+        영수증 <span className="en">Receipts</span>
       </h2>
       <div className="thumbs">
         {attachments.map((a, i) => (

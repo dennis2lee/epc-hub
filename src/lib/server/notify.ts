@@ -12,7 +12,8 @@ type Kind =
   | "changes_requested"
   | "finance_requested"
   | "you_approved"
-  | "check_ready"
+  | "approved_all"
+  | "documents_verified"
   | "documents_requested"
   | "check_issued";
 
@@ -37,13 +38,17 @@ const TEMPLATES: Record<Kind, { subject: (no: string) => string; body: string }>
     subject: (no) => `[교회 지출청구] 승인하셨습니다 (${no})`,
     body: "방금 이 청구서를 승인하셨습니다. 본인이 승인하지 않았다면 사무실에 바로 알려 주세요. / You approved this claim.",
   },
-  check_ready: {
-    subject: (no) => `[교회 지출청구] 수표가 준비되었습니다 (${no})`,
-    body: "서류 확인이 끝났습니다. 수표가 준비되면 주일에 재정부에서 받으시거나 우편으로 받습니다. / Your check is being prepared.",
+  approved_all: {
+    subject: (no) => `[교회 지출청구] 결재가 끝났습니다 (${no})`,
+    body: "부장과 담당 장로의 결재가 끝나 재정부로 넘어갔습니다. / Your claim was approved and sent to finance.",
+  },
+  documents_verified: {
+    subject: (no) => `[교회 지출청구] 서류 확인이 끝났습니다 (${no})`,
+    body: "재정부가 서류를 확인했습니다. 수표가 발행되면 다시 알려 드립니다. / Finance verified your documents.",
   },
   check_issued: {
     subject: (no) => `[교회 지출청구] 수표가 발행되었습니다 (${no})`,
-    body: "수표가 발행되었습니다. / Your check has been issued.",
+    body: "수표가 발행되었습니다. 주일에 재정부에서 받으시거나 우편으로 받습니다. / Your check has been issued.",
   },
 };
 

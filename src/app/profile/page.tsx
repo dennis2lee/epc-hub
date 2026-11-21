@@ -1,0 +1,42 @@
+import Link from "next/link";
+import { Suspense } from "react";
+import { getMe } from "@/lib/server/session";
+import { AccountGate } from "@/app/components/account-gate";
+import { ProfileForm } from "./profile-form";
+
+export const metadata = { title: "내 정보 · 교회 지출청구" };
+
+async function Profile() {
+  const { me } = await getMe();
+  if (!me.signed_in || !me.linked || (me.status !== "active" && me.status !== "pending")) {
+    return <AccountGate me={me} next="/profile" />;
+  }
+  return (
+    <>
+      <ProfileForm
+        initial={{
+          email: me.email ?? "",
+          mailAddress: me.mail_address ?? "",
+          legalNameEn: me.legal_name_en ?? "",
+          lang: me.lang,
+        }}
+      />
+      <Link className="btn btn-ghost" href="/">
+        홈으로
+      </Link>
+    </>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <main className="page">
+      <h1 className="title">
+        내 정보 <span className="en">My info</span>
+      </h1>
+      <Suspense fallback={<p className="muted">불러오는 중…</p>}>
+        <Profile />
+      </Suspense>
+    </main>
+  );
+}

@@ -14,7 +14,7 @@ export default defineConfig({
   },
   test: {
     include: integration ? ["src/**/*.int.test.ts"] : ["src/**/*.test.ts"],
-    exclude: integration ? [] : ["src/**/*.int.test.ts", "node_modules/**"],
+    exclude: integration ? ["src/tests/e2e/**"] : ["src/**/*.int.test.ts", "src/tests/e2e/**", "node_modules/**"],
     coverage: { reportsDirectory: "build/coverage" },
   },
 });

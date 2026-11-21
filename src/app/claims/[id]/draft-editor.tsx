@@ -62,7 +62,7 @@ export function DraftEditor({ claimId, version, departments, initial, today }: P
   return (
     <form onSubmit={onSave} className="card stack">
       <h2 className="subtitle">
-        1. 사용 목적과 금액 <span className="en">Purpose and amount</span>
+        사용 목적과 금액 <span className="en">Purpose and amount</span>
       </h2>
       <label className="field">
         <span>부서</span>
@@ -135,7 +135,7 @@ export function DraftEditor({ claimId, version, departments, initial, today }: P
 
       <fieldset className="stack" style={{ border: 0, padding: 0 }}>
         <legend className="subtitle">
-          3. 수표 받는 방법 <span className="en">Check delivery</span>
+          수표 받는 방법 <span className="en">Check delivery</span>
         </legend>
         <label>
           <input type="radio" name="delivery" checked={form.checkDelivery === "pickup"} onChange={() => update("checkDelivery", "pickup")} /> 주일에

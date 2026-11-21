@@ -1,6 +1,7 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { publicEnv } from "@/lib/env";
 import type { Database } from "@/lib/database.types";
 
@@ -10,6 +11,9 @@ import type { Database } from "@/lib/database.types";
  * RLS and the SQL functions see the real user.
  */
 export async function createClient() {
+  // Everything that touches the user's data renders at request time, never
+  // during prerendering (Cache Components).
+  await connection();
   const cookieStore = await cookies();
   return createServerClient<Database>(publicEnv.supabaseUrl, publicEnv.supabasePublishableKey, {
     cookies: {

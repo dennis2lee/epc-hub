@@ -44,9 +44,9 @@ const lineSchema = z.object({
 });
 
 const draftSchema = z.object({
-  claimId: z.uuid(),
+  claimId: z.guid(),
   version: z.coerce.number().int(),
-  department: z.uuid(),
+  department: z.guid(),
   purpose: z.string().trim().max(300),
   attendees: z.string().trim().max(300).optional().default(""),
   expenseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")),
@@ -92,7 +92,7 @@ export async function saveDraft(input: DraftInput): Promise<ActionResult & { ver
 export async function uploadReceipt(formData: FormData): Promise<ActionResult> {
   const claimId = String(formData.get("claimId") ?? "");
   const file = formData.get("file");
-  if (!z.uuid().safeParse(claimId).success) return { ok: false, error: "잘못된 요청입니다." };
+  if (!z.guid().safeParse(claimId).success) return { ok: false, error: "잘못된 요청입니다." };
   if (!(file instanceof File) || file.size === 0) return { ok: false, error: "파일이 없습니다." };
   if (file.size > MAX_RECEIPT_BYTES) return { ok: false, error: "파일이 4MB보다 큽니다. 사진을 다시 찍거나 줄여 주세요." };
 
