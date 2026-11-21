@@ -1,7 +1,9 @@
 -- Private bucket used only by the /trial page to test uploads from the
 -- KakaoTalk in-app browser. Each user can only write and read their own folder.
-insert into storage.buckets (id, name, public, file_size_limit)
-values ('trial', 'trial', false, 10485760)
+-- Delete this bucket and its policies after the device trial.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('trial', 'trial', false, 4194304,
+        array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
 on conflict (id) do nothing;
 
 create policy "trial insert own folder" on storage.objects

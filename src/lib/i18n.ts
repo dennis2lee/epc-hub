@@ -53,6 +53,14 @@ const errorText: Record<string, Entry> = {
   already_acted_on_claim: { ko: "이 청구서는 이미 한 번 결재하셨습니다.", en: "You already acted on this claim." },
   no_open_step: { ko: "이미 처리된 청구서입니다.", en: "This claim was already handled." },
   not_found: { ko: "청구서를 찾을 수 없습니다.", en: "Claim not found." },
+  kakao_state_mismatch: {
+    ko: "로그인 도중 브라우저가 바뀌었습니다. 처음 연 화면에서 다시 로그인해 주세요.",
+    en: "The browser changed during sign-in. Please sign in again.",
+  },
+  kakao_denied: { ko: "카카오 로그인을 취소했거나 동의하지 않았습니다.", en: "Kakao sign-in was cancelled." },
+  kakao_failed: { ko: "카카오 로그인에 실패했습니다. 다시 시도해 주세요.", en: "Kakao sign-in failed." },
+  kakao_unavailable: { ko: "카카오에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.", en: "Could not reach Kakao." },
+  auth_failed: { ko: "로그인을 마치지 못했습니다. 다시 시도해 주세요.", en: "Sign-in failed." },
 };
 
 export function errorMessage(code: string, lang: Lang = "ko"): string {

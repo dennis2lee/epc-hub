@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -15,12 +18,22 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npx next typegen
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - name: Build (catches Cache Components violations)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        run: npm run build
 
   database:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_AUTH_EXTERNAL_KAKAO_CLIENT_ID: ci-placeholder
+      SUPABASE_AUTH_EXTERNAL_KAKAO_SECRET: ci-placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,10 +41,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Start local Supabase (database only)
-        env:
-          SUPABASE_AUTH_EXTERNAL_KAKAO_CLIENT_ID: ci-placeholder
-          SUPABASE_AUTH_EXTERNAL_KAKAO_SECRET: ci-placeholder
-        run: npx supabase db start --workdir src
+      - name: Start local Supabase
+        run: npm run db:start
       - name: pgTAP
-        run: npx supabase test db --workdir src
+        run: npm run db:test
+      - name: Integration tests
+        run: |
+          node src/scripts/local-env.mjs
+          npm run test:int

@@ -25,7 +25,8 @@ export function externalBrowserUrl(url: string, userAgent: string): string | nul
   }
   if (kind && isAndroid(userAgent)) {
     const u = new URL(url);
-    return `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=${u.protocol.replace(":", "")};package=com.android.chrome;end`;
+    // No fixed package: Android shows the default browser, with a web fallback.
+    return `intent://${u.host}${u.pathname}${u.search}${u.hash}#Intent;scheme=${u.protocol.replace(":", "")};S.browser_fallback_url=${encodeURIComponent(url)};end`;
   }
   return null;
 }

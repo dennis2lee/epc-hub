@@ -19,6 +19,13 @@ export const serverEnv = {
     // Optional: only needed when "Client Secret" is enabled in the Kakao console.
     return process.env.KAKAO_CLIENT_SECRET ?? "";
   },
+  /** Canonical public origin (e.g. https://claims.example.org). Used for OAuth
+   *  redirect URIs instead of the request Host header. */
+  get appOrigin() {
+    const v = process.env.NEXT_PUBLIC_SITE_URL;
+    if (!v && process.env.NODE_ENV === "production") throw new Error("Missing NEXT_PUBLIC_SITE_URL");
+    return (v ?? "http://localhost:3000").replace(/\/$/, "");
+  },
   get cronSecret() {
     return required("CRON_SECRET");
   },
@@ -27,6 +34,10 @@ export const serverEnv = {
   },
   get resendApiKey() {
     // When empty, emails are written to the server log instead of being sent.
-    return process.env.RESEND_API_KEY ?? "";
+    // In production a missing key is a configuration error (names and amounts
+    // must not end up in hosting logs).
+    const v = process.env.RESEND_API_KEY ?? "";
+    if (!v && process.env.NODE_ENV === "production") throw new Error("Missing RESEND_API_KEY");
+    return v;
   },
 };

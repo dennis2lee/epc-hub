@@ -79,7 +79,7 @@ grant select (id, name, legal_name_en, church_title, lang, status, created_at)
 -- Path layout: <claim_id>/<uuid>.<ext>
 -- ---------------------------------------------------------------------------
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('receipts', 'receipts', false, 5242880,
+values ('receipts', 'receipts', false, 4194304,
         array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'])
 on conflict (id) do nothing;
 

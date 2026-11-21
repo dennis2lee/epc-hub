@@ -55,8 +55,12 @@ export function TrialClient({ session }: { session: SessionInfo }) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     startTransition(async () => {
-      const r = await uploadTrialFile(fd);
-      setUploads((u) => [...u, r]);
+      try {
+        const r = await uploadTrialFile(fd);
+        setUploads((u) => [...u, r]);
+      } catch {
+        setUploads((u) => [...u, { ok: false, error: "올리지 못했습니다. 파일이 너무 크거나 연결이 끊겼습니다." }]);
+      }
     });
   }
 

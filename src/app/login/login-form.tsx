@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -13,6 +13,27 @@ export function LoginForm({ next, error }: Props) {
   const [stage, setStage] = useState<"email" | "code">("email");
   const [message, setMessage] = useState<string | null>(error);
   const [busy, setBusy] = useState(false);
+
+  // The in-app browser may reload while the user reads the email; keep progress.
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("login-progress") ?? "null");
+      if (saved?.email && saved?.stage === "code") {
+        setEmail(saved.email); // eslint-disable-line react-hooks/set-state-in-effect
+        setStage("code");
+      }
+    } catch {
+      // storage unavailable: start over
+    }
+  }, []);
+
+  function remember(next: { email: string; stage: "email" | "code" }) {
+    try {
+      sessionStorage.setItem("login-progress", JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  }
 
   // Kakao option 1: Supabase's built-in Kakao provider.
   async function kakaoBuiltIn() {
@@ -44,6 +65,7 @@ export function LoginForm({ next, error }: Props) {
       return;
     }
     setStage("code");
+    remember({ email: email.trim(), stage: "code" });
     setMessage("메일로 6자리 코드를 보냈습니다. 메일함을 확인해 주세요.");
   }
 
@@ -61,6 +83,7 @@ export function LoginForm({ next, error }: Props) {
       setMessage("코드가 맞지 않거나 시간이 지났습니다. 다시 받아 주세요.");
       return;
     }
+    remember({ email: "", stage: "email" });
     router.replace(next);
     router.refresh();
   }
