@@ -144,6 +144,15 @@ export async function assignPosition(formData: FormData): Promise<AdminResult> {
   return { ok: true };
 }
 
+export async function endPosition(positionId: string, endsOn: string): Promise<AdminResult> {
+  if (!id.safeParse(positionId).success || !/^\d{4}-\d{2}-\d{2}$/.test(endsOn)) return invalid;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_end_position", { p_position: positionId, p_ends_on: endsOn });
+  if (error) return fail(error);
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
 export async function createDepartment(formData: FormData): Promise<AdminResult> {
   const parent = String(formData.get("parent") ?? "");
   if (parent && !id.safeParse(parent).success) return invalid;

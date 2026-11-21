@@ -6,6 +6,7 @@
 - 결정 기록: [`doc/decisions.md`](doc/decisions.md)
 - 개발 환경 준비: [`doc/setup.md`](doc/setup.md)
 - 마일스톤과 진행 상황: [`doc/milestones.md`](doc/milestones.md)
+- 운영 절차서: [`doc/operations.md`](doc/operations.md) · 배포 절차: [`doc/deploy.md`](doc/deploy.md) · 실기기 점검표: [`doc/device-checklist.md`](doc/device-checklist.md)
 
 ## 디렉터리
 

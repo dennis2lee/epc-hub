@@ -10,6 +10,7 @@ import {
   createDepartment,
   createInvite,
   createPerson,
+  endPosition,
   reactivatePerson,
   reassignStep,
   suspendPerson,
@@ -68,6 +69,7 @@ export function AdminPanels({ meId, today, stuck, people, departments, positions
   const [copied, setCopied] = useState(false);
   const [suspendTarget, setSuspendTarget] = useState<Person | null>(null);
   const [reassign, setReassign] = useState<{ claimId: string; reason: string } | null>(null);
+  const [ending, setEnding] = useState<{ positionId: string; endsOn: string } | null>(null);
   const [pending, start] = useTransition();
 
   // Do not keep an invite token in a hidden (preserved) page after leaving.
@@ -299,14 +301,51 @@ export function AdminPanels({ meId, today, stuck, people, departments, positions
         <h2 className="subtitle">현재 직책</h2>
         <ul className="list">
           {current.map((p) => (
-            <li key={p.id} className="row-link">
-              <span>
-                {deptOf.get(p.department_id)} · {ROLE[p.role] ?? p.role}
-              </span>
-              <span>{nameOf.get(p.person_id)}</span>
+            <li key={p.id} className="stack" style={{ padding: "10px 0", gap: 6 }}>
+              <div className="row-link" style={{ padding: 0 }}>
+                <span>
+                  {deptOf.get(p.department_id)} · {ROLE[p.role] ?? p.role}
+                  {p.ends_on ? <span className="muted"> · {p.ends_on}까지</span> : null}
+                </span>
+                <span>{nameOf.get(p.person_id)}</span>
+              </div>
+              {ending?.positionId === p.id ? (
+                <div className="stack">
+                  <label className="field">
+                    <span>마지막 날 (이날까지 직책 유지)</span>
+                    <input
+                      id={`end-${p.id}`}
+                      type="date"
+                      min={p.starts_on}
+                      value={ending.endsOn}
+                      onChange={(e) => setEnding({ positionId: p.id, endsOn: e.target.value })}
+                    />
+                  </label>
+                  <div className="btn-row">
+                    <button type="button" className="btn btn-ghost" onClick={() => setEnding(null)} disabled={pending}>
+                      돌아가기
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-main"
+                      disabled={pending || !ending.endsOn}
+                      onClick={() => run("positions", () => endPosition(p.id, ending.endsOn), () => setEnding(null))}
+                    >
+                      직책 끝내기
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <button type="button" className="chip" disabled={pending} onClick={() => setEnding({ positionId: p.id, endsOn: today })}>
+                    직책 끝내기
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
+        {msg("positions")}
         <form onSubmit={onForm("position-form", assignPosition)} className="stack">
           <h3 className="subtitle">직책 배정</h3>
           <label className="field">
