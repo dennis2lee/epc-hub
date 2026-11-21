@@ -19,6 +19,21 @@
 | U2 | 지급은 수표로만 한다 |
 | U3 | 교회 카드 결제는 현재 버전에서 시스템에 올리지 않는다 (나중에 바뀔 수 있음) |
 
-## 구현 결정
+## 구현 결정 (잠정, 2026-11-21, Fable 자문 반영)
 
-구현 착수 시점의 결정은 아래 "구현 결정 (잠정)"에 이어서 적는다.
+사용자가 질문에 답할 수 없다고 해서, 개발 담당이 Fable 자문을 받아 아래와 같이 정했다. 자문 원문 요약은 `doc/reviews/2026-11-21-구현-착수-자문.md`에 있다.
+
+| # | 결정 | 이유 |
+|---|---|---|
+| D1 | 루트에 설정 파일, `src/app`·`src/lib`(Next.js), `src/supabase`(마이그레이션·pgTAP·시드), `doc/`, `build/`(Next `distDir`=`build/next`, 테스트 산출물). Supabase CLI는 npm 스크립트로만 부른다(`--workdir src`) | 사용자 요구(src·doc·build). 플래그를 빼먹으면 루트에 `supabase/`가 새로 생기는 사고를 막는다 |
+| D2 | Next.js 16의 `cacheComponents`와 `partialPrefetching`을 켠 채로 간다. DB 데이터에는 `"use cache"`를 쓰지 않는다 | 다음 메이저에서 기본값이 된다. 사용자별 데이터에 공용 캐시를 쓰면 데이터가 섞일 수 있다 |
+| D3 | DB 검증은 Docker(Colima) 위의 `supabase start` + pgTAP. 동시 승인은 Vitest에서 DB 연결 두 개로 따로 시험한다 | 통제가 RLS·권한·잠금에 있어 실제 Postgres와 Supabase 역할이 필요하다 |
+| D4 | 알림은 DB 전이 함수가 같은 트랜잭션에서 `notifications` 행을 쓰고, 서버가 service role로 주소를 붙여 보낸다. service role은 `src/lib/server/` 한 곳에서만 쓴다 | "다음 사람이 누구인가"를 DB만 안다. 메일이 실패해도 결재는 진행되고 재시도된다 |
+| D5 | 카카오 로그인은 1안(Supabase 카카오 공급자, 이메일 없이)과 2안(카카오 OIDC id_token + `signInWithIdToken`)을 시험판에 함께 넣는다 | 1안이 기본 scope 문제로 실패할 가능성이 있다 |
+| D6 | 사람과 로그인 계정은 1:N(`person_logins`) | 카카오 계정과 이메일 계정은 서로 다른 로그인이 된다. 한 사람에게 묶여야 한다 |
+| D7 | 날짜 판정은 DB의 `private.local_date()`와 `app_settings.time_zone`(기본 `America/Los_Angeles`, 교회 확인 필요) 한 곳에서 한다 | 서버(UTC)와 교회 날짜가 다르면 12월 31일 저녁 제출이 새해로 넘어간다 |
+| D8 | 마이그레이션은 버전 파일로 관리한다. 운영 첫 배포 전에는 파일을 고쳐 쓰고 `db reset`으로 검증하며, 그 뒤로는 추가만 한다 | 선언형 diff는 권한·정책 변경을 놓칠 수 있다 |
+| D9 | i18n은 URL에 언어를 넣지 않고 ko/en 사전과 `people.lang`으로 한다. DB 오류 코드(`not_your_turn` 등)를 사전 키로 쓴다 | 한 카톡 링크를 한·영 사용자가 같이 쓴다 |
+| D10 | 저장소는 GitHub private `dennis2lee/intra-net`, 브랜치는 `main`과 마일스톤 브랜치 | 1인 개발 |
+| D11 | 영수증 업로드는 서버 액션을 거쳐 서버가 sha256을 계산한 뒤 사용자 세션으로 Storage에 올린다(파일당 4MB 이하, 휴대폰에서 축소) | 해시를 클라이언트가 주장하지 않게 한다. Vercel 요청 크기 한도 안이다 |
+| D12 | 결재 관계자(부장·장로·재정부·관리자)는 초대 링크로 연결해도 "사무실 확인 중"으로 두고 대면 확인 후 활성화한다. 일반 작성자는 휴대폰 뒤 4자리가 맞으면 바로 활성화한다 | 설계서 8장 |
