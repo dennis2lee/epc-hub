@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 교회 인트라넷 · 지출청구 전자결재
 
-## Getting Started
+미국 한인교회의 종이 지출청구서를 휴대폰 웹 결재로 바꾸는 프로젝트다. 작성자가 청구서를 올리면 부장과 담당 장로가 승인하고, 재정부가 서류를 확인해 수표를 발행한다.
 
-First, run the development server:
+- 설계서: [`doc/design.html`](doc/design.html) (브라우저로 연다)
+- 결정 기록: [`doc/decisions.md`](doc/decisions.md)
+- 개발 환경 준비: [`doc/setup.md`](doc/setup.md)
+- 마일스톤과 진행 상황: [`doc/milestones.md`](doc/milestones.md)
+
+## 디렉터리
+
+| 경로 | 내용 |
+|---|---|
+| `src/app` | Next.js 화면과 라우트 |
+| `src/lib` | 서버·클라이언트 공용 코드 (Supabase 클라이언트, 금액, 시간대, 문구) |
+| `src/supabase` | DB 마이그레이션, pgTAP 테스트, 시드 데이터 (Supabase CLI는 `--workdir src`로 실행) |
+| `doc` | 한국어 문서, 설계서, 레드팀 검토 기록 |
+| `build` | 빌드·테스트 산출물. 커밋하지 않는다 |
+
+## 빠른 시작
 
 ```bash
+npm install
+cp .env.example .env.local   # 값 채우기는 doc/setup.md 참고
+npm run db:start             # 로컬 Supabase (Docker 필요)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 규칙
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 문서는 한국어, 코드 주석은 영어로 쓴다.
+- 결재 상태 변경은 DB 함수로만 한다.
+- 주요 결정과 마일스톤 검토는 `doc/decisions.md`, `doc/reviews/`에 남긴다.
