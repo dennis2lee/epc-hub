@@ -25,19 +25,19 @@ describe("storage policies", () => {
   });
 
   it("allows uploads to the user's own trial folder", async () => {
-    const r = await writer.client.storage.from("trial").upload(`${writer.uid}/${name}`, new Blob(["hello"]));
+    const r = await writer.client.storage.from("trial").upload(`${writer.uid}/${name}`, new Blob(["hello"], { type: "image/png" }));
     expect(r.error).toBeNull();
   });
 
   it("blocks uploads to another user's folder", async () => {
-    const r = await writer.client.storage.from("trial").upload(`someone-else/${name}`, new Blob(["x"]));
+    const r = await writer.client.storage.from("trial").upload(`someone-else/${name}`, new Blob(["x"], { type: "image/png" }));
     expect(r.error).not.toBeNull();
   });
 
   it("blocks overwriting an existing file", async () => {
     const r = await writer.client.storage
       .from("trial")
-      .upload(`${writer.uid}/${name}`, new Blob(["overwrite"]), { upsert: true });
+      .upload(`${writer.uid}/${name}`, new Blob(["overwrite"], { type: "image/png" }), { upsert: true });
     expect(r.error).not.toBeNull();
   });
 

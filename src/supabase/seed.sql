@@ -25,6 +25,9 @@ insert into public.positions (person_id, department_id, role, starts_on) values
   ('20000000-0000-0000-0000-000000000005', '10000000-0000-0000-0000-000000000004', 'finance', '2026-01-01'),
   ('20000000-0000-0000-0000-000000000006', '10000000-0000-0000-0000-000000000004', 'finance_elder', '2026-01-01');
 
+-- Role holders in the seed are treated as already confirmed in person.
+update public.people set in_person_checked_at = now() where needs_in_person_check;
+
 insert into public.admin_grants (person_id, grant_kind, basis) values
   ('20000000-0000-0000-0000-000000000001', 'admin', 'seed'),
   ('20000000-0000-0000-0000-000000000007', 'auditor', 'seed');

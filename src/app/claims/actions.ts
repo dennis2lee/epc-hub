@@ -10,6 +10,7 @@ import { errorCode, errorMessage } from "@/lib/i18n";
 import { parseDollarsToCents } from "@/lib/money";
 import { dispatchClaimNotifications } from "@/lib/server/notify";
 import { MAX_RECEIPT_BYTES, sniffReceiptType } from "@/lib/server/file-type";
+import { createServiceClient } from "@/lib/server/admin";
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
 
@@ -109,23 +110,28 @@ export async function uploadReceipt(formData: FormData): Promise<ActionResult> {
   const path = `${claimId}/${randomUUID()}.${type.ext}`;
 
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { ok: false, error: errorMessage("not_member") };
   const { error: upErr } = await supabase.storage
     .from("receipts")
     .upload(path, bytes, { contentType: type.mime, upsert: false });
   if (upErr) return { ok: false, error: "올리지 못했습니다. 작성 중인 청구서인지 확인해 주세요." };
 
-  const { error } = await supabase.rpc("add_attachment", {
+  // Recording the attachment is a server-only call (decision D11): the SQL
+  // function re-checks the actor, the draft and the stored object's metadata.
+  const service = createServiceClient();
+  const { error } = await service.rpc("add_attachment_srv", {
+    p_actor_auth: userData.user.id,
     p_claim: claimId,
     p_storage_path: path,
-    p_mime: type.mime,
-    p_bytes: file.size,
     p_sha256: sha256,
     p_merchant: merchant,
     p_receipt_date: /^\d{4}-\d{2}-\d{2}$/.test(receiptDate) ? receiptDate : (null as unknown as string),
     p_amount_cents: amountCents as number,
   });
   if (error) {
-    await supabase.storage.from("receipts").remove([path]);
+    // The object was never recorded; remove it so it cannot be reused.
+    await service.storage.from("receipts").remove([path]);
     return fail(error);
   }
   revalidatePath(`/claims/${claimId}`);
@@ -134,9 +140,11 @@ export async function uploadReceipt(formData: FormData): Promise<ActionResult> {
 
 export async function removeReceipt(attachmentId: string, claimId: string): Promise<ActionResult> {
   const supabase = await createClient();
-  const { data: path, error } = await supabase.rpc("remove_attachment", { p_attachment: attachmentId });
+  const { data, error } = await supabase.rpc("remove_attachment", { p_attachment: attachmentId });
   if (error) return fail(error);
-  if (path) await supabase.storage.from("receipts").remove([path as string]);
+  // Files of a claim that was ever submitted stay as evidence (decision in M1 review).
+  const result = data as { path: string; delete_file: boolean } | null;
+  if (result?.delete_file) await createServiceClient().storage.from("receipts").remove([result.path]);
   revalidatePath(`/claims/${claimId}`);
   return { ok: true };
 }
@@ -153,7 +161,14 @@ async function afterTransition(claimId: string) {
 export async function submitClaim(claimId: string, version: number): Promise<ActionResult> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("submit_claim", { p_claim: claimId, p_version: version });
-  if (error) return fail(error);
+  if (error) {
+    const code = errorCode(error.message);
+    // Organization problems show up on the office's stuck list.
+    if (["no_dept_head", "no_elder", "approver_not_active", "no_independent_approver"].includes(code)) {
+      await supabase.rpc("report_blocked_submit", { p_claim: claimId, p_code: code });
+    }
+    return fail(error);
+  }
   await afterTransition(claimId);
   const result = data as { duplicate_warning?: boolean; late?: boolean };
   const notes = [];
@@ -184,6 +199,15 @@ export async function deleteDraft(claimId: string, version: number): Promise<Act
   if (error) return fail(error);
   revalidatePath("/");
   redirect("/");
+}
+
+export async function cancelOwnClaim(claimId: string, version: number, reason: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cancel_own_claim", { p_claim: claimId, p_version: version, p_reason: reason });
+  if (error) return fail(error);
+  revalidatePath("/");
+  revalidatePath(`/claims/${claimId}`);
+  return { ok: true };
 }
 
 export async function actOnClaim(

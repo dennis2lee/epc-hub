@@ -93,14 +93,14 @@ isOneToOne: false
                   ]
                 },"audit_logs": {
                   Row: {
-                    "action": string,"actor_auth": string | null,"actor_id": string | null,"after": Json | null,"at": string,"before": Json | null,"entity": string,"entity_id": string | null,"id": number
+                    "action": string,"actor_auth": string | null,"actor_id": string | null,"after": Json | null,"at": string,"before": Json | null,"db_role": string,"entity": string,"entity_id": string | null,"id": number,"jwt_role": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "action": string,"actor_auth"?: string | null,"actor_id"?: string | null,"after"?: Json | null,"at"?: string,"before"?: Json | null,"entity": string,"entity_id"?: string | null,"id"?: never
+                    "action": string,"actor_auth"?: string | null,"actor_id"?: string | null,"after"?: Json | null,"at"?: string,"before"?: Json | null,"db_role"?: string,"entity": string,"entity_id"?: string | null,"id"?: never,"jwt_role"?: string | null
                   }
                   Update: {
-                    "action"?: string,"actor_auth"?: string | null,"actor_id"?: string | null,"after"?: Json | null,"at"?: string,"before"?: Json | null,"entity"?: string,"entity_id"?: string | null,"id"?: never
+                    "action"?: string,"actor_auth"?: string | null,"actor_id"?: string | null,"after"?: Json | null,"at"?: string,"before"?: Json | null,"db_role"?: string,"entity"?: string,"entity_id"?: string | null,"id"?: never,"jwt_role"?: string | null
                   }
                   Relationships: [
                     
@@ -118,6 +118,32 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"claim_duplicates": {
+                  Row: {
+                    "claim_id": string,"other_claim_id": string,"reason": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "claim_id": string,"other_claim_id": string,"reason": string
+                  }
+                  Update: {
+                    "claim_id"?: string,"other_claim_id"?: string,"reason"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "claim_duplicates_claim_id_fkey"
+      columns: ["claim_id"]
+isOneToOne: false
+      referencedRelation: "claims"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "claim_duplicates_other_claim_id_fkey"
+      columns: ["other_claim_id"]
+isOneToOne: false
+      referencedRelation: "claims"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"claim_lines": {
                   Row: {
@@ -139,16 +165,42 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"claims": {
+                },"claim_returns": {
                   Row: {
-                    "attendees": string | null,"author_id": string,"check_delivery": Database["public"]['Enums']["check_delivery"],"claim_no": string | null,"created_at": string,"current_seq": number,"department_id": string,"dup_warning": boolean,"expense_date": string | null,"id": string,"late": boolean,"purpose": string,"received_at": string | null,"received_by": string | null,"return_reason": string | null,"round": number,"single_approver": boolean,"status": Database["public"]['Enums']["claim_status"],"submitted_at": string | null,"total_cents": number,"updated_at": string,"version": number
+                    "at": string,"claim_id": string,"id": string,"reason": string,"returned_by": string,"round": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "attendees"?: string | null,"author_id": string,"check_delivery"?: Database["public"]['Enums']["check_delivery"],"claim_no"?: string | null,"created_at"?: string,"current_seq"?: number,"department_id": string,"dup_warning"?: boolean,"expense_date"?: string | null,"id"?: string,"late"?: boolean,"purpose"?: string,"received_at"?: string | null,"received_by"?: string | null,"return_reason"?: string | null,"round"?: number,"single_approver"?: boolean,"status"?: Database["public"]['Enums']["claim_status"],"submitted_at"?: string | null,"total_cents"?: number,"updated_at"?: string,"version"?: number
+                    "at"?: string,"claim_id": string,"id"?: string,"reason": string,"returned_by": string,"round": number
                   }
                   Update: {
-                    "attendees"?: string | null,"author_id"?: string,"check_delivery"?: Database["public"]['Enums']["check_delivery"],"claim_no"?: string | null,"created_at"?: string,"current_seq"?: number,"department_id"?: string,"dup_warning"?: boolean,"expense_date"?: string | null,"id"?: string,"late"?: boolean,"purpose"?: string,"received_at"?: string | null,"received_by"?: string | null,"return_reason"?: string | null,"round"?: number,"single_approver"?: boolean,"status"?: Database["public"]['Enums']["claim_status"],"submitted_at"?: string | null,"total_cents"?: number,"updated_at"?: string,"version"?: number
+                    "at"?: string,"claim_id"?: string,"id"?: string,"reason"?: string,"returned_by"?: string,"round"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "claim_returns_claim_id_fkey"
+      columns: ["claim_id"]
+isOneToOne: false
+      referencedRelation: "claims"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "claim_returns_returned_by_fkey"
+      columns: ["returned_by"]
+isOneToOne: false
+      referencedRelation: "people"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"claims": {
+                  Row: {
+                    "attendees": string | null,"author_id": string,"blocked_at": string | null,"blocked_reason": string | null,"check_delivery": Database["public"]['Enums']["check_delivery"],"claim_no": string | null,"created_at": string,"current_seq": number,"department_id": string,"dup_note": string | null,"dup_warning": boolean,"expense_date": string | null,"first_submitted_at": string | null,"id": string,"late": boolean,"payee_mail_address": string | null,"payee_name": string | null,"purpose": string,"received_at": string | null,"received_by": string | null,"return_reason": string | null,"round": number,"single_approver": boolean,"solo_admin_period": boolean,"status": Database["public"]['Enums']["claim_status"],"submitted_at": string | null,"total_cents": number,"updated_at": string,"version": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attendees"?: string | null,"author_id": string,"blocked_at"?: string | null,"blocked_reason"?: string | null,"check_delivery"?: Database["public"]['Enums']["check_delivery"],"claim_no"?: string | null,"created_at"?: string,"current_seq"?: number,"department_id": string,"dup_note"?: string | null,"dup_warning"?: boolean,"expense_date"?: string | null,"first_submitted_at"?: string | null,"id"?: string,"late"?: boolean,"payee_mail_address"?: string | null,"payee_name"?: string | null,"purpose"?: string,"received_at"?: string | null,"received_by"?: string | null,"return_reason"?: string | null,"round"?: number,"single_approver"?: boolean,"solo_admin_period"?: boolean,"status"?: Database["public"]['Enums']["claim_status"],"submitted_at"?: string | null,"total_cents"?: number,"updated_at"?: string,"version"?: number
+                  }
+                  Update: {
+                    "attendees"?: string | null,"author_id"?: string,"blocked_at"?: string | null,"blocked_reason"?: string | null,"check_delivery"?: Database["public"]['Enums']["check_delivery"],"claim_no"?: string | null,"created_at"?: string,"current_seq"?: number,"department_id"?: string,"dup_note"?: string | null,"dup_warning"?: boolean,"expense_date"?: string | null,"first_submitted_at"?: string | null,"id"?: string,"late"?: boolean,"payee_mail_address"?: string | null,"payee_name"?: string | null,"purpose"?: string,"received_at"?: string | null,"received_by"?: string | null,"return_reason"?: string | null,"round"?: number,"single_approver"?: boolean,"solo_admin_period"?: boolean,"status"?: Database["public"]['Enums']["claim_status"],"submitted_at"?: string | null,"total_cents"?: number,"updated_at"?: string,"version"?: number
                   }
                   Relationships: [
                     {
@@ -193,14 +245,14 @@ isOneToOne: false
                   ]
                 },"invites": {
                   Row: {
-                    "created_at": string,"created_by": string | null,"expires_at": string,"id": string,"person_id": string,"token_hash": string,"used_at": string | null
+                    "created_at": string,"created_by": string | null,"expires_at": string,"failed_attempts": number,"id": string,"locked_at": string | null,"person_id": string,"token_hash": string,"used_at": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"created_by"?: string | null,"expires_at": string,"id"?: string,"person_id": string,"token_hash": string,"used_at"?: string | null
+                    "created_at"?: string,"created_by"?: string | null,"expires_at": string,"failed_attempts"?: number,"id"?: string,"locked_at"?: string | null,"person_id": string,"token_hash": string,"used_at"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"created_by"?: string | null,"expires_at"?: string,"id"?: string,"person_id"?: string,"token_hash"?: string,"used_at"?: string | null
+                    "created_at"?: string,"created_by"?: string | null,"expires_at"?: string,"failed_attempts"?: number,"id"?: string,"locked_at"?: string | null,"person_id"?: string,"token_hash"?: string,"used_at"?: string | null
                   }
                   Relationships: [
                     {
@@ -291,14 +343,14 @@ isOneToOne: false
                   ]
                 },"people": {
                   Row: {
-                    "church_title": string | null,"created_at": string,"email": string | null,"id": string,"lang": string,"legal_name_en": string | null,"mail_address": string | null,"name": string,"needs_in_person_check": boolean,"phone_e164": string | null,"status": Database["public"]['Enums']["person_status"]
+                    "church_title": string | null,"created_at": string,"email": string | null,"id": string,"in_person_checked_at": string | null,"lang": string,"legal_name_en": string | null,"mail_address": string | null,"name": string,"needs_in_person_check": boolean,"phone_e164": string | null,"status": Database["public"]['Enums']["person_status"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "church_title"?: string | null,"created_at"?: string,"email"?: string | null,"id"?: string,"lang"?: string,"legal_name_en"?: string | null,"mail_address"?: string | null,"name": string,"needs_in_person_check"?: boolean,"phone_e164"?: string | null,"status"?: Database["public"]['Enums']["person_status"]
+                    "church_title"?: string | null,"created_at"?: string,"email"?: string | null,"id"?: string,"in_person_checked_at"?: string | null,"lang"?: string,"legal_name_en"?: string | null,"mail_address"?: string | null,"name": string,"needs_in_person_check"?: boolean,"phone_e164"?: string | null,"status"?: Database["public"]['Enums']["person_status"]
                   }
                   Update: {
-                    "church_title"?: string | null,"created_at"?: string,"email"?: string | null,"id"?: string,"lang"?: string,"legal_name_en"?: string | null,"mail_address"?: string | null,"name"?: string,"needs_in_person_check"?: boolean,"phone_e164"?: string | null,"status"?: Database["public"]['Enums']["person_status"]
+                    "church_title"?: string | null,"created_at"?: string,"email"?: string | null,"id"?: string,"in_person_checked_at"?: string | null,"lang"?: string,"legal_name_en"?: string | null,"mail_address"?: string | null,"name"?: string,"needs_in_person_check"?: boolean,"phone_e164"?: string | null,"status"?: Database["public"]['Enums']["person_status"]
                   }
                   Relationships: [
                     
@@ -364,8 +416,14 @@ isOneToOne: false
 "add_attachment":
 { Args: { "p_amount_cents": number,"p_bytes": number,"p_claim": string,"p_merchant": string,"p_mime": string,"p_receipt_date": string,"p_sha256": string,"p_storage_path": string }; Returns: string
                            },
+"add_attachment_srv":
+{ Args: { "p_actor_auth": string,"p_amount_cents": number,"p_claim": string,"p_merchant": string,"p_receipt_date": string,"p_sha256": string,"p_storage_path": string }; Returns: string
+                           },
 "admin_assign_position":
 { Args: { "p_department": string,"p_ends_on": string,"p_person": string,"p_role": string,"p_starts_on": string }; Returns: string
+                           },
+"admin_confirm_in_person":
+{ Args: { "p_person": string }; Returns: undefined
                            },
 "admin_create_department":
 { Args: { "p_is_finance": boolean,"p_name": string,"p_name_en": string,"p_parent": string }; Returns: string
@@ -384,8 +442,14 @@ isOneToOne: false
               "email": string,"id": string,"logins": number,"name": string,"needs_in_person_check": boolean,"phone_e164": string,"status": Database["public"]['Enums']["person_status"]
             }[]
                            },
+"admin_reassign_current_step":
+{ Args: { "p_claim": string,"p_reason": string,"p_version": number }; Returns: string
+                           },
 "admin_set_person_status":
 { Args: { "p_person": string,"p_status": Database["public"]['Enums']["person_status"] }; Returns: undefined
+                           },
+"cancel_own_claim":
+{ Args: { "p_claim": string,"p_reason": string,"p_version": number }; Returns: undefined
                            },
 "create_claim":
 { Args: { "p_department": string }; Returns: string
@@ -415,13 +479,16 @@ isOneToOne: false
             }[]
                            },
 "receive_claim":
-{ Args: { "p_claim": string,"p_version": number }; Returns: undefined
+{ Args: { "p_claim": string,"p_dup_note": string,"p_version": number }; Returns: undefined
                            },
 "record_payment":
 { Args: { "p_check_no": string,"p_claims": (string)[],"p_issued_on": string,"p_memo": string }; Returns: string
                            },
 "remove_attachment":
-{ Args: { "p_attachment": string }; Returns: string
+{ Args: { "p_attachment": string }; Returns: Json
+                           },
+"report_blocked_submit":
+{ Args: { "p_claim": string,"p_code": string }; Returns: undefined
                            },
 "return_claim":
 { Args: { "p_claim": string,"p_reason": string,"p_version": number }; Returns: undefined
@@ -434,7 +501,7 @@ isOneToOne: false
                            },
 "stuck_claims":
 { Args: Record<PropertyKey, never>; Returns: {
-              "claim_id": string,"claim_no": string,"days_waiting": number,"department": string,"status": Database["public"]['Enums']["claim_status"],"waiting_on": string
+              "claim_id": string,"claim_no": string,"days_waiting": number,"department": string,"problem": string,"status": Database["public"]['Enums']["claim_status"],"version": number,"waiting_on": string
             }[]
                            },
 "submit_claim":

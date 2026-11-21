@@ -1,7 +1,7 @@
 -- End-to-end claim lifecycle and the internal-control rules (design §5, §6, §12).
 -- Uses the local seed (src/supabase/seed.sql). Runs inside a transaction.
 begin;
-select plan(40);
+select plan(41);
 
 -- Helpers: act as a seeded login, or as an arbitrary auth uid.
 create function pg_temp.login(p_uid uuid) returns void language plpgsql as $$
@@ -17,14 +17,27 @@ end $$;
 create function pg_temp.uid(p_person_suffix text) returns uuid language sql as $$
   select ('30000000-0000-0000-0000-' || p_person_suffix)::uuid
 $$;
-create function pg_temp.ver(p_claim uuid) returns int language sql as $$
+-- Reads the true version regardless of the caller's RLS visibility.
+create function pg_temp.ver(p_claim uuid) returns int language sql security definer as $$
   select version from public.claims where id = p_claim
 $$;
+-- Simulates the server: upload an object owned by the author, then record it.
+create function pg_temp.attach(p_claim uuid, p_author_uid uuid, p_name text, p_sha text) returns uuid
+language plpgsql as $$
+begin
+  insert into storage.objects (bucket_id, name, owner_id, metadata)
+  values ('receipts', p_claim::text || '/' || p_name, p_author_uid::text,
+          '{"mimetype":"image/jpeg","size":1000}');
+  return public.add_attachment_srv(p_author_uid, p_claim, p_claim::text || '/' || p_name, p_sha, 'Costco', null, null);
+end $$;
 grant execute on all functions in schema pg_temp to authenticated;
 
 -- Fixed test claim id and a storage object for its receipt.
 create temp table t (k text primary key, v uuid);
 grant all on t to authenticated;
+-- Church-local "today", computed as postgres (clients cannot call private.today()).
+create temp table td as select private.today() as d;
+grant select on td to authenticated;
 
 -- ------------------------------------------------------------------ privileges
 select ok(not has_function_privilege('anon', 'public.submit_claim(uuid,int)', 'execute'),
@@ -55,21 +68,21 @@ select pg_temp.login(pg_temp.uid('000000000002'));  -- 김작성
 insert into t values ('claim', public.create_claim('10000000-0000-0000-0000-000000000002'));
 select is(public.save_claim_draft(
             (select v from t where k = 'claim'), 1, '10000000-0000-0000-0000-000000000002',
-            '성탄 행사 간식', null, private.today() - 3, 'pickup',
+            '성탄 행사 간식', null, (select d from td) - 3, 'pickup',
             '[{"description":"간식","amount_cents":10040},{"description":"음료","amount_cents":2800}]'),
           2, 'draft saved, version bumped');
 select is((select total_cents from public.claims where id = (select v from t where k = 'claim')), 12840::bigint,
           'total is the sum of lines in cents');
 select throws_ok($$ select public.submit_claim((select v from t where k = 'claim'), 2) $$,
                  'P0001', 'receipt_required', 'cannot submit without a receipt');
+select throws_ok($$ select public.add_attachment((select v from t where k = 'claim'), 'x', 'image/jpeg', 1, repeat('a', 64), null, null, null) $$,
+                 '42501', null, 'clients cannot record attachments directly');
 select pg_temp.logout();
 
-insert into storage.objects (bucket_id, name) values ('receipts', (select v from t where k = 'claim')::text || '/r1.jpg');
+select ok(pg_temp.attach((select v from t where k = 'claim'), pg_temp.uid('000000000002'), 'r1.jpg', repeat('a', 64)) is not null,
+          'server records the attachment');
 
 select pg_temp.login(pg_temp.uid('000000000002'));
-select ok(public.add_attachment((select v from t where k = 'claim'), (select v from t where k = 'claim')::text || '/r1.jpg',
-          'image/jpeg', 1000, repeat('a', 64), 'Costco', private.today() - 3, 12840) is not null,
-          'attachment recorded');
 select throws_ok($$ select public.submit_claim((select v from t where k = 'claim'), 2) $$,
                  'P0001', 'stale_or_closed', 'old version is rejected');
 select is((public.submit_claim((select v from t where k = 'claim'), pg_temp.ver((select v from t where k = 'claim'))) ->> 'steps')::int,
@@ -117,18 +130,18 @@ select ok(exists (select 1 from public.notifications n
 -- ------------------------------------------------------------------ finance
 select pg_temp.login(pg_temp.uid('000000000002'));
 select throws_ok($$ select public.receive_claim((select v from t where k = 'claim'),
-                    pg_temp.ver((select v from t where k = 'claim'))) $$,
+                    pg_temp.ver((select v from t where k = 'claim')), null) $$,
                  'P0001', 'not_finance', 'author cannot verify own claim');
 select pg_temp.logout();
 
 select pg_temp.login(pg_temp.uid('000000000005'));  -- 최재정
 select is((select count(*)::int from public.finance_queue()), 1, 'finance sees the approved claim');
 select lives_ok($$ select public.receive_claim((select v from t where k = 'claim'),
-                   pg_temp.ver((select v from t where k = 'claim'))) $$, 'finance verifies documents');
-select ok(public.record_payment(array[(select v from t where k = 'claim')], '1001', private.today(), null) is not null,
+                   pg_temp.ver((select v from t where k = 'claim')), null) $$, 'finance verifies documents');
+select ok(public.record_payment(array[(select v from t where k = 'claim')], '1001', (select d from td), null) is not null,
           'check recorded');
 select is((select status::text from public.claims where id = (select v from t where k = 'claim')), 'paid', 'claim paid');
-select throws_ok($$ select public.record_payment(array[(select v from t where k = 'claim')], '1002', private.today(), null) $$,
+select throws_ok($$ select public.record_payment(array[(select v from t where k = 'claim')], '1002', (select d from td), null) $$,
                  'P0001', 'stale_or_closed', 'a paid claim cannot be paid twice');
 select pg_temp.logout();
 
@@ -141,12 +154,10 @@ select ok(exists (select 1 from public.audit_logs a
 select pg_temp.login(pg_temp.uid('000000000003'));  -- 박부장 writes
 insert into t values ('own', public.create_claim('10000000-0000-0000-0000-000000000002'));
 select public.save_claim_draft((select v from t where k = 'own'), 1, '10000000-0000-0000-0000-000000000002',
-       '교재', null, private.today(), 'pickup', '[{"description":"교재","amount_cents":5000}]');
+       '교재', null, (select d from td), 'pickup', '[{"description":"교재","amount_cents":5000}]');
 select pg_temp.logout();
-insert into storage.objects (bucket_id, name) values ('receipts', (select v from t where k = 'own')::text || '/r.jpg');
+select pg_temp.attach((select v from t where k = 'own'), pg_temp.uid('000000000003'), 'r.jpg', repeat('b', 64));
 select pg_temp.login(pg_temp.uid('000000000003'));
-select public.add_attachment((select v from t where k = 'own'), (select v from t where k = 'own')::text || '/r.jpg',
-       'image/jpeg', 10, repeat('b', 64), null, null, null);
 select is((public.submit_claim((select v from t where k = 'own'), pg_temp.ver((select v from t where k = 'own'))) ->> 'steps')::int,
           1, 'head''s own claim has one step');
 select ok((select single_approver from public.claims where id = (select v from t where k = 'own')),
