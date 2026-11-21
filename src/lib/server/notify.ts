@@ -56,7 +56,7 @@ function siteUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
 
-async function sendEmail(to: string, subject: string, text: string): Promise<void> {
+export async function sendEmail(to: string, subject: string, text: string): Promise<void> {
   const key = serverEnv.resendApiKey;
   if (!key) {
     // Local development: print instead of sending.

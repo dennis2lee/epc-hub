@@ -9,6 +9,7 @@ import { DraftEditor } from "./draft-editor";
 import { ReceiptUploader } from "./receipt-uploader";
 import { ApproverPanel } from "./approver-panel";
 import { AuthorActions } from "./author-actions";
+import { FinancePanel } from "./finance-panel";
 
 export const metadata = { title: "지출청구서 · 교회 지출청구" };
 
@@ -76,6 +77,11 @@ async function ClaimView({ params }: Props) {
     departments = data ?? [];
   }
   const reasons = Array.isArray(settings?.value) ? (settings.value as string[]) : ["영수증 누락", "기타"];
+  let canFinance = false;
+  if (claim.status === "approved") {
+    const { data } = await supabase.rpc("can_i_handle_finance", { p_claim: claim.id });
+    canFinance = data === true;
+  }
 
   return (
     <div className="stack">
@@ -201,6 +207,16 @@ async function ClaimView({ params }: Props) {
       )}
 
       {isMyTurn && <ApproverPanel claimId={claim.id} version={claim.version} amount={formatCents(Number(claim.total_cents))} receiptCount={(attachments ?? []).length} reasons={reasons} />}
+
+      {canFinance && (
+        <FinancePanel claimId={claim.id} version={claim.version} dupWarning={claim.dup_warning} reasons={reasons} />
+      )}
+
+      {claim.claim_no && (
+        <a className="btn btn-ghost" href={`/claims/${claim.id}/print`}>
+          인쇄용 청구서 <span className="en">Print</span>
+        </a>
+      )}
 
       {isAuthor && (
         <AuthorActions

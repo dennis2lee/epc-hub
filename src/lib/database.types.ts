@@ -434,6 +434,11 @@ isOneToOne: false
 "admin_create_person":
 { Args: { "p_church_title": string,"p_email": string,"p_legal_name_en": string,"p_name": string,"p_needs_in_person_check": boolean,"p_phone_e164": string }; Returns: string
                            },
+"admin_emails_srv":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "email": string
+            }[]
+                           },
 "admin_end_position":
 { Args: { "p_ends_on": string,"p_position": string }; Returns: undefined
                            },
@@ -448,6 +453,9 @@ isOneToOne: false
 "admin_set_person_status":
 { Args: { "p_person": string,"p_status": Database["public"]['Enums']["person_status"] }; Returns: undefined
                            },
+"can_i_handle_finance":
+{ Args: { "p_claim": string }; Returns: boolean
+                           },
 "cancel_own_claim":
 { Args: { "p_claim": string,"p_reason": string,"p_version": number }; Returns: undefined
                            },
@@ -457,6 +465,16 @@ isOneToOne: false
 "delete_draft":
 { Args: { "p_claim": string,"p_version": number }; Returns: undefined
                            },
+"finance_export":
+{ Args: { "p_month": string }; Returns: {
+              "amount_cents": number,"author": string,"check_no": string,"claim_no": string,"cleared_on": string,"department": string,"expense_date": string,"issued_on": string,"late": boolean,"payee_name": string,"purpose": string,"single_approver": boolean,"solo_admin_period": boolean,"status": Database["public"]['Enums']["claim_status"]
+            }[]
+                           },
+"finance_payments":
+{ Args: { "p_since": string }; Returns: {
+              "amount_cents": number,"check_delivery": string,"check_no": string,"claim_nos": string,"cleared_on": string,"issued_on": string,"payee_name": string,"payment_id": string,"status": Database["public"]['Enums']["payment_status"]
+            }[]
+                           },
 "finance_queue":
 { Args: Record<PropertyKey, never>; Returns: {
               "author": string,"author_id": string,"check_delivery": Database["public"]['Enums']["check_delivery"],"claim_id": string,"claim_no": string,"department": string,"dup_warning": boolean,"late": boolean,"single_approver": boolean,"status": Database["public"]['Enums']["claim_status"],"submitted_at": string,"total_cents": number
@@ -464,6 +482,9 @@ isOneToOne: false
                            },
 "invite_preview":
 { Args: { "p_token": string }; Returns: Json
+                           },
+"mark_check_cleared":
+{ Args: { "p_cleared_on": string,"p_payment": string }; Returns: undefined
                            },
 "me":
 { Args: Record<PropertyKey, never>; Returns: Json
@@ -502,6 +523,11 @@ isOneToOne: false
 "stuck_claims":
 { Args: Record<PropertyKey, never>; Returns: {
               "claim_id": string,"claim_no": string,"days_waiting": number,"department": string,"problem": string,"status": Database["public"]['Enums']["claim_status"],"version": number,"waiting_on": string
+            }[]
+                           },
+"stuck_digest_srv":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "claim_no": string,"days_waiting": number,"department": string,"problem": string
             }[]
                            },
 "submit_claim":
