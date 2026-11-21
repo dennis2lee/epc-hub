@@ -4,7 +4,8 @@ import { getMe, isActive } from "@/lib/server/session";
 import { AccountGate } from "@/app/components/account-gate";
 import { StatusLabel } from "@/app/components/status-label";
 import { formatCents } from "@/lib/money";
-import { formatChurchDateTime } from "@/lib/time";
+import { churchDate, daysBetween, formatChurchDateTime } from "@/lib/time";
+import { CallOffice } from "@/app/components/account-gate";
 
 async function Dashboard() {
   const { me, supabase } = await getMe();
@@ -21,21 +22,24 @@ async function Dashboard() {
       .limit(30),
   ]);
 
+  const today = churchDate();
+  const waited = (iso: string | null) => {
+    if (!iso) return "";
+    const d = daysBetween(churchDate(new Date(iso)), today);
+    return d <= 0 ? "오늘 올라옴" : `${d}일째`;
+  };
+
   return (
     <div className="stack">
       <p>
         {me.name}님, 안녕하세요.{" "}
         <Link href="/profile" className="muted">
-          내 정보
+          내 정보 <span className="en">My info</span>
         </Link>
       </p>
 
-      <Link className="btn btn-main" href="/claims/new">
-        새 지출청구서 쓰기 <span className="en">New claim</span>
-      </Link>
-
       {queue && queue.length > 0 && (
-        <section className="card stack">
+        <section className="card stack queue-card">
           <h2 className="subtitle">
             내가 볼 청구서 {queue.length}건 <span className="en">To review</span>
           </h2>
@@ -44,9 +48,11 @@ async function Dashboard() {
               <li key={q.claim_id}>
                 <Link href={`/claims/${q.claim_id}`} className="row-link">
                   <span>
-                    {q.department} · {q.author}
+                    {q.purpose} · {q.author}
                     <br />
-                    <span className="muted">{q.claim_no}</span>
+                    <span className="muted">
+                      {q.department} · {q.claim_no} · {waited(q.submitted_at)}
+                    </span>
                   </span>
                   <strong>{formatCents(Number(q.total_cents))}</strong>
                 </Link>
@@ -56,12 +62,17 @@ async function Dashboard() {
         </section>
       )}
 
+
+      <Link className={`btn ${queue && queue.length > 0 ? "btn-ghost" : "btn-main"}`} href="/claims/new">
+        새 지출청구서 쓰기 <span className="en">New claim</span>
+      </Link>
+
       <section className="card stack">
         <h2 className="subtitle">
           내 청구서 <span className="en">My claims</span>
         </h2>
         {!mine || mine.length === 0 ? (
-          <p className="muted">아직 올린 청구서가 없습니다.</p>
+          <p className="muted">아직 올린 청구서가 없습니다. · No claims yet.</p>
         ) : (
           <ul className="list">
             {mine.map((c) => (
@@ -87,7 +98,7 @@ async function Dashboard() {
       </section>
 
       <nav className="stack">
-        {me.is_finance && (
+        {(me.is_finance || me.is_auditor) && (
           <Link className="btn btn-ghost" href="/finance">
             재정부 화면 <span className="en">Finance</span>
           </Link>
@@ -97,6 +108,7 @@ async function Dashboard() {
             관리자 화면 <span className="en">Admin</span>
           </Link>
         )}
+        <CallOffice />
         <form action="/auth/signout" method="post">
           <button className="btn btn-ghost" style={{ width: "100%" }}>
             로그아웃 <span className="en">Sign out</span>

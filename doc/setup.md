@@ -45,8 +45,15 @@ npm run check         # lint + 타입 검사 + 단위 테스트
 npm run db:reset      # 마이그레이션과 시드를 처음부터 다시 적용
 npm run db:test       # pgTAP (결재 규칙과 권한)
 npm run test:int      # 로컬 Supabase에 붙는 통합 테스트
+npm run test:e2e      # Playwright (휴대폰 크기, dev 서버를 띄워 둔 채로)
 npm run build         # 결과물은 build/next (커밋하지 않음)
 ```
+
+## 문제 해결
+
+- **CSS를 고쳤는데 화면에 반영되지 않는다**: Turbopack 개발 캐시가 오래된 결과를 내줄 때가 있다. dev 서버를 끄고 `build/next/dev` 폴더를 지우거나 다른 이름으로 옮긴 뒤 다시 켠다.
+- **`.env.local`을 셸에서 읽을 때 오류가 난다**: 공백·괄호·`<`가 있는 값(`MAIL_FROM`, `NEXT_PUBLIC_OFFICE_PHONE`)은 큰따옴표로 감싼다.
+- **카카오 1안 버튼**: 실기기 시험 때만 `NEXT_PUBLIC_KAKAO_OPTION1=1`로 켠다. 평소 로그인 화면에는 2안만 보인다.
 
 마이그레이션이나 DB 함수를 바꾸면 `npm run db:reset && npm run db:test && npm run db:types` 순서로 돌리고, 바뀐 `src/lib/database.types.ts`를 함께 커밋한다.
 

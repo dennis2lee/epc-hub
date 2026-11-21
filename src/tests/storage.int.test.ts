@@ -48,7 +48,8 @@ describe("storage policies", () => {
     expect(r.error).not.toBeNull();
   });
 
-  it("allows receipt uploads for the user's own draft", async () => {
+  // Receipts are written only by the server after it checks the bytes (M2 review, D11).
+  it("blocks direct receipt uploads even for the user's own draft", async () => {
     const { data: claimId, error } = await writer.client.rpc("create_claim", {
       p_department: "10000000-0000-0000-0000-000000000002",
     });
@@ -56,6 +57,6 @@ describe("storage policies", () => {
     const r = await writer.client.storage
       .from("receipts")
       .upload(`${claimId}/r.jpg`, new Blob(["jpeg"], { type: "image/jpeg" }), { contentType: "image/jpeg" });
-    expect(r.error).toBeNull();
+    expect(r.error).not.toBeNull();
   });
 });

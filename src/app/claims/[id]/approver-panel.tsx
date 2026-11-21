@@ -4,10 +4,17 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { actOnClaim } from "../actions";
 
-type Props = { claimId: string; version: number; amount: string; receiptCount: number; reasons: string[] };
+type Props = {
+  claimId: string;
+  version: number;
+  amount: string;
+  payee: string;
+  receiptCount: number;
+  reasons: string[];
+};
 
 /** Approve with a confirmation sheet, or request changes with a reason chip. */
-export function ApproverPanel({ claimId, version, amount, receiptCount, reasons }: Props) {
+export function ApproverPanel({ claimId, version, amount, payee, receiptCount, reasons }: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<"idle" | "approve" | "reject" | "done">("idle");
   const [reason, setReason] = useState<string | null>(null);
@@ -29,6 +36,8 @@ export function ApproverPanel({ claimId, version, amount, receiptCount, reasons 
         return;
       }
       setMode("done");
+      if (r.message) setMessage(r.message);
+      // The server then shows the lasting result card (who was notified next).
       router.refresh();
     });
   }
@@ -36,8 +45,10 @@ export function ApproverPanel({ claimId, version, amount, receiptCount, reasons 
   if (mode === "done") {
     return (
       <section className="card stack">
-        <p className="subtitle">처리했습니다.</p>
-        <p className="muted">다음 분께 메일로 알렸습니다.</p>
+        <p className="subtitle" role="status">
+          처리했습니다. <span className="en">Done.</span>
+        </p>
+        {message && <p className="notice">{message}</p>}
       </section>
     );
   }
@@ -58,15 +69,21 @@ export function ApproverPanel({ claimId, version, amount, receiptCount, reasons 
       {mode === "approve" && (
         <div className="stack">
           <p className="subtitle">
-            {amount} · 영수증 {receiptCount}장을 승인합니다
+            {amount} · {payee} 앞 수표 · 영수증 {receiptCount}장을 승인합니다
+            <br />
+            <span className="en">
+              Approve {amount}, check to {payee}, {receiptCount} receipt(s)
+            </span>
           </p>
-          <p className="muted">잘못 누르셨으면 돌아가기를 누르세요.</p>
+          <p className="muted">
+            승인하면 되돌릴 수 없습니다. 잘못 누르셨으면 돌아가기를 누르세요. · Approval cannot be undone.
+          </p>
           <div className="btn-row">
             <button type="button" className="btn btn-ghost" onClick={() => setMode("idle")} disabled={pending}>
               돌아가기
             </button>
             <button type="button" className="btn btn-main" onClick={() => run("approve")} disabled={pending}>
-              {pending ? "처리 중…" : "승인하기"}
+              {pending ? "처리 중…" : "승인하기"} <span className="en">Approve</span>
             </button>
           </div>
         </div>
@@ -74,7 +91,10 @@ export function ApproverPanel({ claimId, version, amount, receiptCount, reasons 
 
       {mode === "reject" && (
         <div className="stack">
-          <p className="subtitle">보완 요청 사유</p>
+          <p className="subtitle">
+            보완 요청 사유 <span className="en">Reason</span>
+          </p>
+          <p className="muted">작성자에게 메일로 알립니다. · The author will be notified.</p>
           <div className="chips">
             {reasons.map((r) => (
               <button key={r} type="button" className="chip" aria-pressed={reason === r} onClick={() => setReason(r)}>
@@ -83,7 +103,9 @@ export function ApproverPanel({ claimId, version, amount, receiptCount, reasons 
             ))}
           </div>
           <label className="field">
-            <span className="muted">메모 {reason === "기타" ? "(필수)" : "(선택)"}</span>
+            <span className="muted">
+              메모 {reason === "기타" ? "(필수)" : "(선택)"} <span className="en">Note</span>
+            </span>
             <input id="reject-memo" value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={200} />
           </label>
           <div className="btn-row">
@@ -91,13 +113,17 @@ export function ApproverPanel({ claimId, version, amount, receiptCount, reasons 
               돌아가기
             </button>
             <button type="button" className="btn btn-main" onClick={() => run("reject")} disabled={pending}>
-              {pending ? "처리 중…" : "보완 요청 보내기"}
+              {pending ? "처리 중…" : "보완 요청 보내기"} <span className="en">Send</span>
             </button>
           </div>
         </div>
       )}
 
-      {message && <p className="notice">{message}</p>}
+      {message && (
+        <p className="notice" role="alert">
+          {message}
+        </p>
+      )}
     </section>
   );
 }

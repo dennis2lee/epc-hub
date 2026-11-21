@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { getMe, isActive } from "@/lib/server/session";
-import { AccountGate } from "@/app/components/account-gate";
+import { AccountGate, CallOffice } from "@/app/components/account-gate";
 import { StatusLabel } from "@/app/components/status-label";
 import { formatCents } from "@/lib/money";
-import { churchDate, formatChurchDateTime } from "@/lib/time";
+import { churchDate, formatChurchDateTime, formatDay } from "@/lib/time";
 import { DraftEditor } from "./draft-editor";
 import { ReceiptUploader } from "./receipt-uploader";
 import { ApproverPanel } from "./approver-panel";
@@ -26,10 +26,15 @@ async function ClaimView({ params }: Props) {
   if (!claim) {
     return (
       <div className="card stack">
-        <p>이 청구서를 볼 수 없습니다. 본인 차례가 아니거나 없는 청구서입니다.</p>
-        <Link className="btn btn-ghost" href="/">
-          홈으로
+        <p>
+          이 청구서를 볼 수 없습니다. 아직 본인 차례가 아니거나, 지워졌거나, 주소가 잘못되었습니다.
+          <br />
+          <span className="en">You cannot open this claim: it is not your turn yet, it was deleted, or the link is wrong.</span>
+        </p>
+        <Link className="btn btn-main" href="/">
+          홈으로 <span className="en">Home</span>
         </Link>
+        <CallOffice />
       </div>
     );
   }
@@ -50,11 +55,8 @@ async function ClaimView({ params }: Props) {
     : { data: [] };
   const nameOf = new Map((approvers ?? []).map((p) => [p.id, p.name]));
 
-  const paths = (attachments ?? []).map((a) => a.storage_path);
-  const { data: signed } = paths.length
-    ? await supabase.storage.from("receipts").createSignedUrls(paths, 300)
-    : { data: [] };
-  const urlOf = new Map((signed ?? []).map((s) => [s.path, s.signedUrl]));
+  // Each receipt is opened through a route that signs a fresh URL per request.
+  const receiptUrl = (attachmentId: string) => `/claims/${id}/receipts/${attachmentId}`;
 
   const isAuthor = claim.author_id === me.person_id;
   const isDraft = claim.status === "draft";
@@ -63,6 +65,16 @@ async function ClaimView({ params }: Props) {
   const isMyTurn = claim.status === "in_review" && currentStep?.approver_id === me.person_id && !currentStep?.decision;
   const pastRounds = (steps ?? []).filter((s) => s.round < claim.round && s.decision);
   const rejectStep = claim.status === "rejected" ? currentRound.find((s) => s.decision === "reject") : undefined;
+  // My own decision in this round stays on screen, with who was told next.
+  const myDecision = currentRound.find((s) => s.decision && (s.acted_by ?? s.approver_id) === me.person_id);
+  const notifiedNext =
+    claim.status === "in_review"
+      ? `${nameOf.get(currentStep?.approver_id ?? "") ?? ""}님`
+      : claim.status === "approved"
+        ? "재정부"
+        : claim.status === "rejected"
+          ? `작성자 ${author?.name ?? ""}님`
+          : null;
 
   let preview: { seq: number; roles: string[]; approver_name: string }[] = [];
   let previewError: string | null = null;
@@ -71,14 +83,14 @@ async function ClaimView({ params }: Props) {
     preview = data ?? [];
     previewError = error?.message ?? null;
   }
-  let departments: { id: string; name: string }[] = [];
+  let departments: { id: string; name: string; name_en: string | null }[] = [];
   if (isAuthor && isDraft) {
-    const { data } = await supabase.from("departments").select("id, name").eq("active", true).order("name");
+    const { data } = await supabase.from("departments").select("id, name, name_en").eq("active", true).order("name");
     departments = data ?? [];
   }
   const reasons = Array.isArray(settings?.value) ? (settings.value as string[]) : ["영수증 누락", "기타"];
   let canFinance = false;
-  if (claim.status === "approved") {
+  if (claim.status === "approved" || claim.status === "received") {
     const { data } = await supabase.rpc("can_i_handle_finance", { p_claim: claim.id });
     canFinance = data === true;
   }
@@ -137,7 +149,13 @@ async function ClaimView({ params }: Props) {
           <DraftEditor
             claimId={claim.id}
             version={claim.version}
+            round={claim.round}
             departments={departments}
+            receiptCount={(attachments ?? []).length}
+            legalNameMissing={!me.legal_name_en}
+            mailAddressMissing={!me.mail_address}
+            preview={preview}
+            previewError={previewError}
             initial={{
               department: claim.department_id,
               purpose: claim.purpose,
@@ -151,21 +169,17 @@ async function ClaimView({ params }: Props) {
               })),
             }}
             today={churchDate()}
-          />
-          <ReceiptUploader
-            claimId={claim.id}
-            attachments={(attachments ?? []).map((a) => ({
-              id: a.id,
-              mime: a.mime,
-              merchant: a.merchant,
-              url: urlOf.get(a.storage_path) ?? null,
-            }))}
-          />
+          >
+            <ReceiptUploader
+              claimId={claim.id}
+              attachments={(attachments ?? []).map((a) => ({ id: a.id, mime: a.mime, url: receiptUrl(a.id) }))}
+            />
+          </DraftEditor>
         </>
       ) : (
         <section className="card stack">
           <dl className="kv">
-            <dt>사용 목적</dt>
+            <dt>사용 목적 · Purpose</dt>
             <dd>{claim.purpose}</dd>
             {claim.attendees && (
               <>
@@ -174,9 +188,13 @@ async function ClaimView({ params }: Props) {
               </>
             )}
             <dt>사용일</dt>
-            <dd>{claim.expense_date}</dd>
+            <dd>{formatDay(claim.expense_date)}</dd>
+            <dt>수표 받는 분 · Payee</dt>
+            <dd>{claim.payee_name ?? author?.name}</dd>
             <dt>수표 받는 방법</dt>
-            <dd>{claim.check_delivery === "mail" ? "우편" : "주일에 재정부에서 수령"}</dd>
+            <dd>
+              {claim.check_delivery === "mail" ? `우편 · ${claim.payee_mail_address ?? ""}` : "주일에 재정부에서 수령"}
+            </dd>
           </dl>
           <ul className="list">
             {(lines ?? []).map((l) => (
@@ -188,28 +206,60 @@ async function ClaimView({ params }: Props) {
           </ul>
           <div className="thumbs">
             {(attachments ?? []).map((a, i) => {
-              const url = urlOf.get(a.storage_path);
+              const url = receiptUrl(a.id);
               return (
-                <a key={a.id} href={url ?? "#"} target="_blank" rel="noreferrer">
-                  {a.mime.startsWith("image/") && url ? (
+                <a key={a.id} href={url}>
+                  {a.mime.startsWith("image/") ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={url} alt={`영수증 ${i + 1}`} />
                   ) : (
-                    `영수증 ${i + 1}`
+                    `PDF ${i + 1}`
                   )}
                 </a>
               );
             })}
           </div>
+          <p className="muted">사진을 누르면 크게 볼 수 있습니다. · Tap a receipt to enlarge.</p>
           {claim.dup_warning && <p className="notice">같은 영수증이 다른 청구서에 있을 수 있습니다.</p>}
           {claim.late && <p className="notice">사용일에서 60일이 지난 청구입니다.</p>}
         </section>
       )}
 
-      {isMyTurn && <ApproverPanel claimId={claim.id} version={claim.version} amount={formatCents(Number(claim.total_cents))} receiptCount={(attachments ?? []).length} reasons={reasons} />}
+      {isMyTurn && (
+        <ApproverPanel
+          claimId={claim.id}
+          version={claim.version}
+          amount={formatCents(Number(claim.total_cents))}
+          payee={claim.payee_name ?? author?.name ?? ""}
+          receiptCount={(attachments ?? []).length}
+          reasons={reasons}
+        />
+      )}
+
+      {myDecision && !isAuthor && (
+        <section className="card stack ok-card" role="status">
+          <p className="subtitle">
+            {myDecision.decision === "approve" ? "승인하셨습니다" : "보완을 요청하셨습니다"}{" "}
+            <span className="en">{myDecision.decision === "approve" ? "You approved" : "You requested changes"}</span>
+          </p>
+          <p className="muted">
+            {myDecision.decided_at ? formatChurchDateTime(myDecision.decided_at) : ""}
+            {notifiedNext ? ` · ${notifiedNext}께 메일로 알렸습니다.` : ""}
+          </p>
+          <Link className="btn btn-main" href="/">
+            내가 볼 다른 청구서 <span className="en">Back to my list</span>
+          </Link>
+        </section>
+      )}
 
       {canFinance && (
-        <FinancePanel claimId={claim.id} version={claim.version} dupWarning={claim.dup_warning} reasons={reasons} />
+        <FinancePanel
+          claimId={claim.id}
+          version={claim.version}
+          status={claim.status}
+          dupWarning={claim.dup_warning}
+          reasons={reasons}
+        />
       )}
 
       {claim.claim_no && (
@@ -218,15 +268,12 @@ async function ClaimView({ params }: Props) {
         </a>
       )}
 
-      {isAuthor && (
+      {isAuthor && !isDraft && (
         <AuthorActions
           claimId={claim.id}
           version={claim.version}
           status={claim.status}
-          round={claim.round}
           canWithdraw={claim.status === "in_review" && !currentRound.some((s) => s.decision)}
-          preview={preview}
-          previewError={previewError}
           waitingOn={claim.status === "in_review" ? (nameOf.get(currentStep?.approver_id ?? "") ?? null) : null}
         />
       )}
@@ -249,7 +296,7 @@ async function ClaimView({ params }: Props) {
       )}
 
       <Link className="btn btn-ghost" href="/">
-        홈으로
+        홈으로 <span className="en">Home</span>
       </Link>
     </div>
   );

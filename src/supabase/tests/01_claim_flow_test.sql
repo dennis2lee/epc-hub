@@ -18,6 +18,9 @@ create function pg_temp.uid(p_person_suffix text) returns uuid language sql as $
   select ('30000000-0000-0000-0000-' || p_person_suffix)::uuid
 $$;
 -- Reads the true version regardless of the caller's RLS visibility.
+create function pg_temp.total(p_claim uuid) returns bigint
+language sql security definer as $$ select total_cents from public.claims where id = p_claim $$;
+
 create function pg_temp.ver(p_claim uuid) returns int language sql security definer as $$
   select version from public.claims where id = p_claim
 $$;
@@ -138,10 +141,10 @@ select pg_temp.login(pg_temp.uid('000000000005'));  -- 최재정
 select is((select count(*)::int from public.finance_queue()), 1, 'finance sees the approved claim');
 select lives_ok($$ select public.receive_claim((select v from t where k = 'claim'),
                    pg_temp.ver((select v from t where k = 'claim')), null) $$, 'finance verifies documents');
-select ok(public.record_payment(array[(select v from t where k = 'claim')], '1001', (select d from td), null) is not null,
+select ok(public.record_payment(array[(select v from t where k = 'claim')], '1001', (select d from td), null, pg_temp.total((select v from t where k = 'claim'))) is not null,
           'check recorded');
 select is((select status::text from public.claims where id = (select v from t where k = 'claim')), 'paid', 'claim paid');
-select throws_ok($$ select public.record_payment(array[(select v from t where k = 'claim')], '1002', (select d from td), null) $$,
+select throws_ok($$ select public.record_payment(array[(select v from t where k = 'claim')], '1002', (select d from td), null, pg_temp.total((select v from t where k = 'claim'))) $$,
                  'P0001', 'stale_or_closed', 'a paid claim cannot be paid twice');
 select pg_temp.logout();
 

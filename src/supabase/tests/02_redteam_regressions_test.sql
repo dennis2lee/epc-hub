@@ -13,6 +13,9 @@ begin
   perform set_config('request.jwt.claims', '', true);
 end $$;
 create function pg_temp.uid(p text) returns uuid language sql as $$ select ('30000000-0000-0000-0000-' || p)::uuid $$;
+create function pg_temp.total(p_claim uuid) returns bigint
+language sql security definer as $$ select total_cents from public.claims where id = p_claim $$;
+
 create function pg_temp.ver(p_claim uuid) returns int language sql security definer as $$
   select version from public.claims where id = p_claim $$;
 create function pg_temp.attach(p_claim uuid, p_uid uuid, p_name text, p_sha text) returns uuid language plpgsql as $$
@@ -116,9 +119,9 @@ select public.update_my_profile('writer@church.test', null, 'CASH', 'ko');
 select pg_temp.logout();
 select pg_temp.login(pg_temp.uid('000000000006'));
 select public.receive_claim((select v from t where k = 'fin'), pg_temp.ver((select v from t where k = 'fin')), null);
-select throws_ok($$ select public.record_payment(array[(select v from t where k = 'fin')], '5001', (select d from td) + 3, null) $$,
+select throws_ok($$ select public.record_payment(array[(select v from t where k = 'fin')], '5001', (select d from td) + 3, null, pg_temp.total((select v from t where k = 'fin'))) $$,
                  'P0001', 'issued_on_in_future', 'check date cannot be in the future');
-select ok(public.record_payment(array[(select v from t where k = 'fin')], '005001', (select d from td), null) is not null, 'check recorded');
+select ok(public.record_payment(array[(select v from t where k = 'fin')], '005001', (select d from td), null, pg_temp.total((select v from t where k = 'fin'))) is not null, 'check recorded');
 select pg_temp.logout();
 select is((select payee_name from public.payments where check_no = '5001'), 'Writer Kim',
           'payee is the name fixed at submission, not the later profile edit');

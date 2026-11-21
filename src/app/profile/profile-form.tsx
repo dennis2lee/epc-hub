@@ -6,17 +6,17 @@ import { saveProfile } from "./actions";
 
 type Initial = { email: string; mailAddress: string; legalNameEn: string; lang: "ko" | "en" };
 
-export function ProfileForm({ initial }: { initial: Initial }) {
+export function ProfileForm({ initial, back }: { initial: Initial; back: string | null }) {
   const router = useRouter();
   const [form, setForm] = useState(initial);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [pending, start] = useTransition();
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     start(async () => {
       const r = await saveProfile(form);
-      setMessage(r.ok ? "저장했습니다." : r.error);
+      setMessage(r.ok ? { text: "저장했습니다.\nSaved.", ok: true } : { text: r.error, ok: false });
       router.refresh();
     });
   }
@@ -34,13 +34,14 @@ export function ProfileForm({ initial }: { initial: Initial }) {
           placeholder="예: Gildong Hong"
           maxLength={100}
         />
-        <span className="muted">은행에서 수표를 받을 수 있는 이름과 같아야 합니다.</span>
+        <span className="muted">은행에서 수표를 받을 수 있는 이름과 같아야 합니다. · Must match your bank account name.</span>
       </label>
       <label className="field">
         <span>
-          이메일 (알림 받을 주소) <span className="en">Email</span>
+          이메일 (알림 받을 주소) <span className="en">Email for notices</span>
         </span>
-        <input id="profile-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <input id="profile-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} maxLength={254} />
+        <span className="muted">주소를 바꾸면 이전 주소로 안내 메일이 갑니다. · The old address is notified.</span>
       </label>
       <label className="field">
         <span>
@@ -54,17 +55,21 @@ export function ProfileForm({ initial }: { initial: Initial }) {
           maxLength={300}
         />
       </label>
-      <label className="field">
-        <span>화면 언어 · Language</span>
-        <select id="profile-lang" value={form.lang} onChange={(e) => setForm({ ...form, lang: e.target.value as "ko" | "en" })}>
-          <option value="ko">한국어</option>
-          <option value="en">English</option>
-        </select>
-      </label>
-      {message && <p className="notice">{message}</p>}
+      {/* Screens show Korean and English together; a language switch returns
+          with full English screens (decision D18). */}
+      {message && (
+        <p className={message.ok ? "ok" : "notice"} role={message.ok ? "status" : "alert"}>
+          {message.text}
+        </p>
+      )}
       <button className="btn btn-main" disabled={pending}>
         저장하기 <span className="en">Save</span>
       </button>
+      {back && message?.ok && (
+        <button type="button" className="btn btn-main" onClick={() => router.push(back)}>
+          쓰던 청구서로 돌아가기 <span className="en">Back to my claim</span>
+        </button>
+      )}
     </form>
   );
 }

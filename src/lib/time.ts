@@ -31,3 +31,12 @@ export function daysBetween(a: string, b: string): number {
   const ms = Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`);
   return Math.round(ms / 86_400_000);
 }
+
+/** Format a calendar date (YYYY-MM-DD) as "11/18 (수)"; with English, "11/18 (Wed)". */
+export function formatDay(ymd: string | null | undefined, lang: "ko" | "en" = "ko"): string {
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return "";
+  // Noon UTC keeps the weekday stable in every US time zone.
+  const d = new Date(`${ymd}T12:00:00Z`);
+  const weekday = new Intl.DateTimeFormat(lang === "ko" ? "ko-KR" : "en-US", { weekday: "short", timeZone: "UTC" }).format(d);
+  return `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8, 10))} (${weekday})`;
+}

@@ -15,12 +15,9 @@ test("finance verifies, records a check and exports CSV", async ({ browser }) =>
   await writer.locator("#draft-date").fill("2026-11-20");
   await writer.locator("#line-desc-0").fill("교재");
   await writer.locator("#line-amount-0").fill("50.25");
-  await writer.getByRole("button", { name: /저장하기/ }).click();
-  await expect(writer.getByText("저장했습니다.")).toBeVisible();
   await writer.locator("#receipt-file").setInputFiles({ name: "r.jpg", mimeType: "image/jpeg", buffer: jpegBytes("fin") });
-  await writer.getByRole("button", { name: /영수증 올리기/ }).click();
   await expect(writer.locator(".thumbs a")).toHaveCount(1);
-  await writer.getByRole("button", { name: /^올리기/ }).click();
+  await writer.locator("#submit-claim").click();
   await expect(writer.getByText("결재 중")).toBeVisible();
   const claimNo = (await writer.locator("strong").first().textContent())?.trim() ?? "";
 
@@ -29,8 +26,8 @@ test("finance verifies, records a check and exports CSV", async ({ browser }) =>
     const page = await ctx.newPage();
     await signIn(page, email, claimPath);
     await page.getByRole("button", { name: /^승인/ }).click();
-    await page.getByRole("button", { name: "승인하기" }).click();
-    await expect(page.getByText("처리했습니다.")).toBeVisible();
+    await page.getByRole("button", { name: /^승인하기/ }).click();
+    await expect(page.getByText("승인하셨습니다")).toBeVisible();
     await ctx.close();
   }
 
@@ -46,9 +43,17 @@ test("finance verifies, records a check and exports CSV", async ({ browser }) =>
   await row.locator('input[type="checkbox"]').check();
   const checkNo = String(Date.now()).slice(-6);
   await fin.locator("#check-no").fill(checkNo);
+  // The typed check amount must match the selected claims.
+  await fin.locator("#check-amount").fill("50.00");
+  await fin.getByRole("button", { name: /수표 기록/ }).click();
+  await expect(fin.getByText(/합계와 다릅니다/)).toBeVisible();
+  await fin.locator("#check-amount").fill("50.25");
   await fin.getByRole("button", { name: /수표 기록/ }).click();
   await expect(fin.getByText(/수표를 기록했습니다/)).toBeVisible();
-  await expect(fin.getByText(`#${checkNo}`)).toBeVisible();
+  const checkRow = fin.locator("li", { hasText: `#${checkNo}` });
+  await expect(checkRow).toBeVisible();
+  // The person who recorded the check does not record its clearing (D21).
+  await expect(checkRow.getByRole("button", { name: "결제됨 기록" })).toHaveCount(0);
 
   const month = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit" })
     .format(new Date())
@@ -63,6 +68,13 @@ test("finance verifies, records a check and exports CSV", async ({ browser }) =>
   await writer.reload();
   await expect(writer.getByText("수표 발행됨")).toBeVisible();
 
+  // A wrong check is voided with a reason; the claim goes back to "to pay".
+  await checkRow.getByRole("button", { name: "무효 처리" }).click();
+  await fin.locator(`[id^="row-void-"]`).fill("수표 금액 오기재");
+  await fin.getByRole("button", { name: /^무효 처리$/ }).last().click();
+  await expect(fin.getByText(/무효 처리했습니다/)).toBeVisible();
+  await expect(fin.locator("li", { hasText: claimNo }).locator('input[type="checkbox"]')).toBeVisible();
+
   // The writer cannot download the finance CSV.
   const denied = await writer.request.get(`/api/finance/export?month=${month}`);
   expect(denied.status()).toBe(403);
@@ -74,5 +86,5 @@ test("daily cron requires the secret", async ({ request }) => {
   expect((await request.get("/api/cron/daily")).status()).toBe(401);
   const ok = await request.get("/api/cron/daily", { headers: { authorization: "Bearer local-cron-secret" } });
   expect(ok.status()).toBe(200);
-  expect(await ok.json()).toHaveProperty("stuck");
+  expect(await ok.json()).toHaveProperty("retried");
 });

@@ -15,6 +15,9 @@ export default defineConfig({
   test: {
     include: integration ? ["src/**/*.int.test.ts"] : ["src/**/*.test.ts"],
     exclude: integration ? ["src/tests/e2e/**"] : ["src/**/*.int.test.ts", "src/tests/e2e/**", "node_modules/**"],
+    // Integration files share seed accounts; magic links for the same user would
+    // invalidate each other if files ran in parallel.
+    fileParallelism: !integration,
     coverage: { reportsDirectory: "build/coverage" },
   },
 });

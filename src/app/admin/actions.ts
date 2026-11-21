@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { errorCode, errorMessage } from "@/lib/i18n";
+import { after } from "next/server";
 import { dispatchClaimNotifications } from "@/lib/server/notify";
+import { serverEnv } from "@/lib/server/env";
 
 export type AdminResult = { ok: true; value?: string } | { ok: false; error: string };
 
@@ -18,11 +20,25 @@ const ADMIN_ERRORS: Record<string, string> = {
   not_invitable: "이미 연결된 분입니다.",
   no_new_approver: "새로 결재할 사람이 없습니다. 먼저 직책을 배정해 주세요.",
   bad_end_date: "끝나는 날짜를 확인해 주세요.",
+  reason_required: "이유를 적어 주세요.",
+  not_found: "대상을 찾을 수 없습니다. 새로 보기를 눌러 주세요.",
+  name_required: "이름을 넣어 주세요.",
+  not_suspended: "정지된 분이 아닙니다.",
+  use_confirm_in_person: "사용 시작은 '대면 확인 완료'로 해 주세요.",
 };
+
+const id = z.guid();
+const invalid: AdminResult = { ok: false, error: "입력 내용을 확인해 주세요." };
 
 function fail(err: { message?: string; code?: string } | null): AdminResult {
   if (err?.code === "23P01") return { ok: false, error: "같은 기간에 이미 그 직책을 가진 분이 있습니다." };
-  if (err?.code === "23505") return { ok: false, error: "이미 등록된 휴대폰 번호입니다." };
+  if (err?.code === "23505") {
+    // Tell which unique value collided instead of always blaming the phone.
+    const m = err.message ?? "";
+    if (m.includes("phone")) return { ok: false, error: "이미 등록된 휴대폰 번호입니다." };
+    if (m.includes("email")) return { ok: false, error: "이미 등록된 메일 주소입니다." };
+    return { ok: false, error: "이미 등록된 값입니다. 입력 내용을 확인해 주세요." };
+  }
   const code = errorCode(err?.message);
   return { ok: false, error: ADMIN_ERRORS[code] ?? errorMessage(code) };
 }
@@ -40,13 +56,27 @@ function toE164(raw: string): string | null {
 export async function createPerson(formData: FormData): Promise<AdminResult> {
   const phone = toE164(String(formData.get("phone") ?? ""));
   if (!phone) return { ok: false, error: "휴대폰 번호를 확인해 주세요. 예: (213) 555-0100" };
+  const fields = z
+    .object({
+      name: z.string().trim().min(1).max(50),
+      legalNameEn: z.string().trim().max(100),
+      email: z.email().max(254).or(z.literal("")),
+      title: z.string().trim().max(20),
+    })
+    .safeParse({
+      name: String(formData.get("name") ?? ""),
+      legalNameEn: String(formData.get("legalNameEn") ?? ""),
+      email: String(formData.get("email") ?? "").trim(),
+      title: String(formData.get("title") ?? ""),
+    });
+  if (!fields.success) return invalid;
   const supabase = await createClient();
   const { error } = await supabase.rpc("admin_create_person", {
-    p_name: String(formData.get("name") ?? ""),
-    p_legal_name_en: String(formData.get("legalNameEn") ?? ""),
+    p_name: fields.data.name,
+    p_legal_name_en: fields.data.legalNameEn,
     p_phone_e164: phone,
-    p_email: String(formData.get("email") ?? ""),
-    p_church_title: String(formData.get("title") ?? ""),
+    p_email: fields.data.email,
+    p_church_title: fields.data.title,
     p_needs_in_person_check: formData.get("approver") === "on",
   });
   if (error) return fail(error);
@@ -55,14 +85,15 @@ export async function createPerson(formData: FormData): Promise<AdminResult> {
 }
 
 export async function createInvite(personId: string): Promise<AdminResult> {
+  if (!id.safeParse(personId).success) return invalid;
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("admin_create_invite", { p_person: personId });
   if (error || !data) return fail(error);
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  return { ok: true, value: `${base}/invite/${data}` };
+  return { ok: true, value: `${serverEnv.appOrigin}/invite/${data}` };
 }
 
 export async function confirmInPerson(personId: string): Promise<AdminResult> {
+  if (!id.safeParse(personId).success) return invalid;
   const supabase = await createClient();
   const { error } = await supabase.rpc("admin_confirm_in_person", { p_person: personId });
   if (error) return fail(error);
@@ -71,8 +102,18 @@ export async function confirmInPerson(personId: string): Promise<AdminResult> {
 }
 
 export async function suspendPerson(personId: string): Promise<AdminResult> {
+  if (!id.safeParse(personId).success) return invalid;
   const supabase = await createClient();
   const { error } = await supabase.rpc("admin_set_person_status", { p_person: personId, p_status: "suspended" });
+  if (error) return fail(error);
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+export async function reactivatePerson(personId: string): Promise<AdminResult> {
+  if (!id.safeParse(personId).success) return invalid;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_reactivate_person", { p_person: personId });
   if (error) return fail(error);
   revalidatePath("/admin");
   return { ok: true };
@@ -88,7 +129,7 @@ const positionSchema = z.object({
 
 export async function assignPosition(formData: FormData): Promise<AdminResult> {
   const parsed = positionSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, error: "입력 내용을 확인해 주세요." };
+  if (!parsed.success) return invalid;
   const v = parsed.data;
   const supabase = await createClient();
   const { error } = await supabase.rpc("admin_assign_position", {
@@ -104,8 +145,11 @@ export async function assignPosition(formData: FormData): Promise<AdminResult> {
 }
 
 export async function createDepartment(formData: FormData): Promise<AdminResult> {
-  const supabase = await createClient();
   const parent = String(formData.get("parent") ?? "");
+  if (parent && !id.safeParse(parent).success) return invalid;
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name || name.length > 50 || String(formData.get("nameEn") ?? "").length > 80) return invalid;
+  const supabase = await createClient();
   const { error } = await supabase.rpc("admin_create_department", {
     p_name: String(formData.get("name") ?? ""),
     p_name_en: String(formData.get("nameEn") ?? ""),
@@ -118,6 +162,10 @@ export async function createDepartment(formData: FormData): Promise<AdminResult>
 }
 
 export async function reassignStep(claimId: string, version: number, reason: string): Promise<AdminResult> {
+  const ok = z
+    .object({ claimId: z.guid(), version: z.number().int().min(0), reason: z.string().trim().min(1).max(300) })
+    .safeParse({ claimId, version, reason });
+  if (!ok.success) return { ok: false, error: ADMIN_ERRORS.reason_required };
   const supabase = await createClient();
   const { error } = await supabase.rpc("admin_reassign_current_step", {
     p_claim: claimId,
@@ -125,7 +173,7 @@ export async function reassignStep(claimId: string, version: number, reason: str
     p_reason: reason,
   });
   if (error) return fail(error);
-  await dispatchClaimNotifications(claimId);
+  after(() => dispatchClaimNotifications(claimId));
   revalidatePath("/admin");
   return { ok: true };
 }

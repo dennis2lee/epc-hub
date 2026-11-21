@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
+import { detectInApp, externalBrowserUrl } from "@/lib/inapp";
+
+// Option 1 (Supabase's built-in Kakao provider) is only for the device trial.
+const SHOW_KAKAO_OPTION1 = process.env.NEXT_PUBLIC_KAKAO_OPTION1 === "1";
+
+const SEND_FAILED = "메일을 보내지 못했습니다. 잠시 후 다시 해 주세요.\nCould not send the code. Please try again shortly.";
+const TOO_MANY = "코드를 너무 자주 요청했습니다. 1분 뒤에 다시 해 주세요.\nToo many requests. Please wait a minute.";
+
+const noop = () => () => {};
+function useUserAgent(): string {
+  return useSyncExternalStore(noop, () => navigator.userAgent, () => "");
+}
 
 type Props = { next: string; error: string | null };
 
@@ -13,6 +25,8 @@ export function LoginForm({ next, error }: Props) {
   const [stage, setStage] = useState<"email" | "code">("email");
   const [message, setMessage] = useState<string | null>(error);
   const [busy, setBusy] = useState(false);
+  const ua = useUserAgent();
+  const inApp = ua ? detectInApp(ua) : null;
 
   // The in-app browser may reload while the user reads the email; keep progress.
   useEffect(() => {
@@ -45,13 +59,13 @@ export function LoginForm({ next, error }: Props) {
       options: { redirectTo, scopes: "profile_nickname profile_image" },
     });
     if (err) {
-      setMessage(err.message);
+      setMessage(SEND_FAILED);
       setBusy(false);
     }
   }
 
-  async function sendCode(e: React.FormEvent) {
-    e.preventDefault();
+  async function sendCode(e?: React.FormEvent) {
+    e?.preventDefault();
     setBusy(true);
     setMessage(null);
     const supabase = createClient();
@@ -61,12 +75,12 @@ export function LoginForm({ next, error }: Props) {
     });
     setBusy(false);
     if (err) {
-      setMessage(err.message);
+      setMessage(err.status === 429 ? TOO_MANY : SEND_FAILED);
       return;
     }
     setStage("code");
     remember({ email: email.trim(), stage: "code" });
-    setMessage("메일로 6자리 코드를 보냈습니다. 메일함을 확인해 주세요.");
+    setMessage(`${email.trim()}(으)로 6자리 코드를 보냈습니다. 메일함을 확인해 주세요.\nWe sent a 6-digit code to ${email.trim()}.`);
   }
 
   async function verifyCode(e: React.FormEvent) {
@@ -80,7 +94,7 @@ export function LoginForm({ next, error }: Props) {
     });
     setBusy(false);
     if (err) {
-      setMessage("코드가 맞지 않거나 시간이 지났습니다. 다시 받아 주세요.");
+      setMessage("코드가 맞지 않거나 시간이 지났습니다. 아래 '코드 다시 받기'를 눌러 주세요.\nWrong or expired code: tap Resend.");
       return;
     }
     remember({ email: "", stage: "email" });
@@ -90,7 +104,26 @@ export function LoginForm({ next, error }: Props) {
 
   return (
     <div className="stack">
-      {message && <p className="notice">{message}</p>}
+      {message && (
+        <p className="notice" role="alert">
+          {message}
+        </p>
+      )}
+
+      {inApp && (
+        <section className="card stack notice-card">
+          <p>
+            카카오톡 안에서 열린 화면입니다. 로그인이 잘 안 되면 휴대폰 브라우저로 열어 주세요.
+            <br />
+            <span className="en">Opened inside an app. If sign-in fails, open this page in your phone&apos;s browser.</span>
+          </p>
+          {externalBrowserUrl(window.location.href, ua) && (
+            <a className="btn btn-ghost" href={externalBrowserUrl(window.location.href, ua) ?? "#"}>
+              브라우저로 열기 <span className="en">Open in browser</span>
+            </a>
+          )}
+        </section>
+      )}
 
       <section className="card stack">
         <h2 className="subtitle">카카오 <span className="en">Kakao</span></h2>
@@ -98,9 +131,11 @@ export function LoginForm({ next, error }: Props) {
         <a className="btn btn-kakao" href={`/auth/kakao/start?next=${encodeURIComponent(next)}`}>
           카카오로 로그인 <span className="en">Sign in with Kakao</span>
         </a>
-        <button type="button" className="btn btn-ghost" onClick={kakaoBuiltIn} disabled={busy}>
-          카카오 로그인 (방식 1 시험용)
-        </button>
+        {SHOW_KAKAO_OPTION1 && (
+          <button type="button" className="btn btn-ghost" onClick={kakaoBuiltIn} disabled={busy}>
+            카카오 로그인 (방식 1 시험용)
+          </button>
+        )}
       </section>
 
       <section className="card stack">
@@ -125,7 +160,9 @@ export function LoginForm({ next, error }: Props) {
         ) : (
           <form onSubmit={verifyCode} className="stack">
             <label className="field">
-              <span>메일로 받은 6자리 코드</span>
+              <span>
+                {email.trim()}(으)로 받은 6자리 코드 <span className="en">6-digit code</span>
+              </span>
               <input
                 id="login-code"
                 inputMode="numeric"
@@ -140,8 +177,11 @@ export function LoginForm({ next, error }: Props) {
             <button className="btn btn-main" disabled={busy}>
               확인 <span className="en">Verify</span>
             </button>
-            <button type="button" className="btn btn-ghost" onClick={() => setStage("email")}>
-              다른 주소로 받기
+            <button type="button" className="btn btn-ghost" onClick={() => sendCode()} disabled={busy}>
+              코드 다시 받기 <span className="en">Resend code</span>
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => setStage("email")} disabled={busy}>
+              다른 주소로 받기 <span className="en">Use another email</span>
             </button>
           </form>
         )}

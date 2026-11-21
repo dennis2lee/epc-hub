@@ -167,14 +167,14 @@ isOneToOne: false
                   ]
                 },"claim_returns": {
                   Row: {
-                    "at": string,"claim_id": string,"id": string,"reason": string,"returned_by": string,"round": number
+                    "at": string,"claim_id": string,"from_status": Database["public"]['Enums']["claim_status"] | null,"id": string,"reason": string,"returned_by": string,"round": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "at"?: string,"claim_id": string,"id"?: string,"reason": string,"returned_by": string,"round": number
+                    "at"?: string,"claim_id": string,"from_status"?: Database["public"]['Enums']["claim_status"] | null,"id"?: string,"reason": string,"returned_by": string,"round": number
                   }
                   Update: {
-                    "at"?: string,"claim_id"?: string,"id"?: string,"reason"?: string,"returned_by"?: string,"round"?: number
+                    "at"?: string,"claim_id"?: string,"from_status"?: Database["public"]['Enums']["claim_status"] | null,"id"?: string,"reason"?: string,"returned_by"?: string,"round"?: number
                   }
                   Relationships: [
                     {
@@ -243,6 +243,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"digest_runs": {
+                  Row: {
+                    "at": string,"run_date": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "at"?: string,"run_date": string
+                  }
+                  Update: {
+                    "at"?: string,"run_date"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"invites": {
                   Row: {
                     "created_at": string,"created_by": string | null,"expires_at": string,"failed_attempts": number,"id": string,"locked_at": string | null,"person_id": string,"token_hash": string,"used_at": string | null
@@ -271,14 +285,14 @@ isOneToOne: false
                   ]
                 },"notifications": {
                   Row: {
-                    "attempts": number,"channel": string,"claim_id": string | null,"created_at": string,"error": string | null,"id": string,"kind": string,"recipient_id": string,"sent_at": string | null,"status": string
+                    "attempts": number,"channel": string,"claim_id": string | null,"claimed_at": string | null,"created_at": string,"error": string | null,"id": string,"kind": string,"recipient_id": string,"sent_at": string | null,"status": string,"to_address": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "attempts"?: number,"channel"?: string,"claim_id"?: string | null,"created_at"?: string,"error"?: string | null,"id"?: string,"kind": string,"recipient_id": string,"sent_at"?: string | null,"status"?: string
+                    "attempts"?: number,"channel"?: string,"claim_id"?: string | null,"claimed_at"?: string | null,"created_at"?: string,"error"?: string | null,"id"?: string,"kind": string,"recipient_id": string,"sent_at"?: string | null,"status"?: string,"to_address"?: string | null
                   }
                   Update: {
-                    "attempts"?: number,"channel"?: string,"claim_id"?: string | null,"created_at"?: string,"error"?: string | null,"id"?: string,"kind"?: string,"recipient_id"?: string,"sent_at"?: string | null,"status"?: string
+                    "attempts"?: number,"channel"?: string,"claim_id"?: string | null,"claimed_at"?: string | null,"created_at"?: string,"error"?: string | null,"id"?: string,"kind"?: string,"recipient_id"?: string,"sent_at"?: string | null,"status"?: string,"to_address"?: string | null
                   }
                   Relationships: [
                     {
@@ -321,21 +335,65 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"payments": {
+                },"payment_events": {
                   Row: {
-                    "amount_cents": number,"check_no": string,"cleared_on": string | null,"created_at": string,"id": string,"issued_on": string,"memo": string | null,"paid_by": string,"payee_name": string,"status": Database["public"]['Enums']["payment_status"]
+                    "actor_id": string,"at": string,"cleared_on": string | null,"id": string,"kind": string,"payment_id": string,"reason": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount_cents": number,"check_no": string,"cleared_on"?: string | null,"created_at"?: string,"id"?: string,"issued_on": string,"memo"?: string | null,"paid_by": string,"payee_name": string,"status"?: Database["public"]['Enums']["payment_status"]
+                    "actor_id": string,"at"?: string,"cleared_on"?: string | null,"id"?: string,"kind": string,"payment_id": string,"reason"?: string | null
                   }
                   Update: {
-                    "amount_cents"?: number,"check_no"?: string,"cleared_on"?: string | null,"created_at"?: string,"id"?: string,"issued_on"?: string,"memo"?: string | null,"paid_by"?: string,"payee_name"?: string,"status"?: Database["public"]['Enums']["payment_status"]
+                    "actor_id"?: string,"at"?: string,"cleared_on"?: string | null,"id"?: string,"kind"?: string,"payment_id"?: string,"reason"?: string | null
                   }
                   Relationships: [
                     {
+      foreignKeyName: "payment_events_actor_id_fkey"
+      columns: ["actor_id"]
+isOneToOne: false
+      referencedRelation: "people"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "payment_events_payment_id_fkey"
+      columns: ["payment_id"]
+isOneToOne: false
+      referencedRelation: "payments"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"payments": {
+                  Row: {
+                    "amount_cents": number,"check_no": string,"cleared_by": string | null,"cleared_on": string | null,"cleared_recorded_at": string | null,"created_at": string,"id": string,"issued_on": string,"memo": string | null,"paid_by": string,"payee_name": string,"replaces_payment_id": string | null,"self_cleared": boolean,"status": Database["public"]['Enums']["payment_status"],"void_reason": string | null,"voided_at": string | null,"voided_by": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount_cents": number,"check_no": string,"cleared_by"?: string | null,"cleared_on"?: string | null,"cleared_recorded_at"?: string | null,"created_at"?: string,"id"?: string,"issued_on": string,"memo"?: string | null,"paid_by": string,"payee_name": string,"replaces_payment_id"?: string | null,"self_cleared"?: boolean,"status"?: Database["public"]['Enums']["payment_status"],"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null
+                  }
+                  Update: {
+                    "amount_cents"?: number,"check_no"?: string,"cleared_by"?: string | null,"cleared_on"?: string | null,"cleared_recorded_at"?: string | null,"created_at"?: string,"id"?: string,"issued_on"?: string,"memo"?: string | null,"paid_by"?: string,"payee_name"?: string,"replaces_payment_id"?: string | null,"self_cleared"?: boolean,"status"?: Database["public"]['Enums']["payment_status"],"void_reason"?: string | null,"voided_at"?: string | null,"voided_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "payments_cleared_by_fkey"
+      columns: ["cleared_by"]
+isOneToOne: false
+      referencedRelation: "people"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "payments_paid_by_fkey"
       columns: ["paid_by"]
+isOneToOne: false
+      referencedRelation: "people"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "payments_replaces_payment_id_fkey"
+      columns: ["replaces_payment_id"]
+isOneToOne: false
+      referencedRelation: "payments"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "payments_voided_by_fkey"
+      columns: ["voided_by"]
 isOneToOne: false
       referencedRelation: "people"
       referencedColumns: ["id"]
@@ -444,8 +502,11 @@ isOneToOne: false
                            },
 "admin_people":
 { Args: Record<PropertyKey, never>; Returns: {
-              "email": string,"id": string,"logins": number,"name": string,"needs_in_person_check": boolean,"phone_e164": string,"status": Database["public"]['Enums']["person_status"]
+              "has_email": boolean,"id": string,"in_person_checked_at": string,"logins": number,"name": string,"needs_in_person_check": boolean,"phone_last4": string,"status": Database["public"]['Enums']["person_status"]
             }[]
+                           },
+"admin_reactivate_person":
+{ Args: { "p_person": string }; Returns: undefined
                            },
 "admin_reassign_current_step":
 { Args: { "p_claim": string,"p_reason": string,"p_version": number }; Returns: string
@@ -456,8 +517,19 @@ isOneToOne: false
 "can_i_handle_finance":
 { Args: { "p_claim": string }; Returns: boolean
                            },
+"can_upload_receipt_srv":
+{ Args: { "p_actor_auth": string,"p_claim": string }; Returns: boolean
+                           },
 "cancel_own_claim":
 { Args: { "p_claim": string,"p_reason": string,"p_version": number }; Returns: undefined
+                           },
+"claim_digest_run_srv":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"claim_print_steps":
+{ Args: { "p_claim": string }; Returns: {
+              "acted_by_name": string,"approver_name": string,"decided_at": string,"decision": Database["public"]['Enums']["decision_kind"],"roles": (string)[],"seq": number,"snapshot8": string,"step_id": string,"valid": boolean
+            }[]
                            },
 "create_claim":
 { Args: { "p_department": string }; Returns: string
@@ -465,14 +537,24 @@ isOneToOne: false
 "delete_draft":
 { Args: { "p_claim": string,"p_version": number }; Returns: undefined
                            },
+"finance_emails_srv":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "email": string
+            }[]
+                           },
 "finance_export":
 { Args: { "p_month": string }; Returns: {
-              "amount_cents": number,"author": string,"check_no": string,"claim_no": string,"cleared_on": string,"department": string,"expense_date": string,"issued_on": string,"late": boolean,"payee_name": string,"purpose": string,"single_approver": boolean,"solo_admin_period": boolean,"status": Database["public"]['Enums']["claim_status"]
+              "amount_cents": number,"approvers": string,"author": string,"backdated": boolean,"check_amount_cents": number,"check_no": string,"claim_no": string,"cleared_by": string,"cleared_on": string,"department": string,"dup_note": string,"dup_warning": boolean,"expense_date": string,"issued_on": string,"late": boolean,"paid_by": string,"payee_name": string,"payment_status": Database["public"]['Enums']["payment_status"],"purpose": string,"received_by": string,"replaces_check_no": string,"returns_count": number,"self_cleared": boolean,"single_approver": boolean,"solo_admin_period": boolean,"void_reason": string,"voided_on": string
+            }[]
+                           },
+"finance_outstanding":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "amount_cents": number,"check_no": string,"claim_no": string,"days": number,"payee_name": string,"section": string,"since": string
             }[]
                            },
 "finance_payments":
 { Args: { "p_since": string }; Returns: {
-              "amount_cents": number,"check_delivery": string,"check_no": string,"claim_nos": string,"cleared_on": string,"issued_on": string,"payee_name": string,"payment_id": string,"status": Database["public"]['Enums']["payment_status"]
+              "amount_cents": number,"can_clear": boolean,"can_unclear": boolean,"can_void": boolean,"check_delivery": string,"check_no": string,"claim_nos": string,"cleared_by_name": string,"cleared_on": string,"issued_on": string,"paid_by_name": string,"payee_name": string,"payment_id": string,"replaces_check_no": string,"self_cleared": boolean,"status": Database["public"]['Enums']["payment_status"],"void_reason": string,"voided_by_name": string
             }[]
                            },
 "finance_queue":
@@ -489,9 +571,17 @@ isOneToOne: false
 "me":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"me_finance":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
 "my_review_queue":
 { Args: Record<PropertyKey, never>; Returns: {
-              "author": string,"claim_id": string,"claim_no": string,"department": string,"roles": (string)[],"single_approver": boolean,"submitted_at": string,"total_cents": number
+              "author": string,"claim_id": string,"claim_no": string,"department": string,"purpose": string,"roles": (string)[],"single_approver": boolean,"submitted_at": string,"total_cents": number
+            }[]
+                           },
+"old_checks_srv":
+{ Args: { "p_days": number }; Returns: {
+              "amount_cents": number,"check_no": string,"days": number,"payee_name": string
             }[]
                            },
 "preview_approval_line":
@@ -503,7 +593,7 @@ isOneToOne: false
 { Args: { "p_claim": string,"p_dup_note": string,"p_version": number }; Returns: undefined
                            },
 "record_payment":
-{ Args: { "p_check_no": string,"p_claims": (string)[],"p_issued_on": string,"p_memo": string }; Returns: string
+{ Args: { "p_check_amount_cents": number,"p_check_no": string,"p_claims": (string)[],"p_issued_on": string,"p_memo": string }; Returns: string
                            },
 "remove_attachment":
 { Args: { "p_attachment": string }; Returns: Json
@@ -533,8 +623,14 @@ isOneToOne: false
 "submit_claim":
 { Args: { "p_claim": string,"p_version": number }; Returns: Json
                            },
+"unmark_check_cleared":
+{ Args: { "p_payment": string,"p_reason": string }; Returns: undefined
+                           },
 "update_my_profile":
 { Args: { "p_email": string,"p_lang": string,"p_legal_name_en": string,"p_mail_address": string }; Returns: undefined
+                           },
+"void_payment":
+{ Args: { "p_payment": string,"p_reason": string }; Returns: undefined
                            },
 "withdraw_claim":
 { Args: { "p_claim": string,"p_version": number }; Returns: undefined

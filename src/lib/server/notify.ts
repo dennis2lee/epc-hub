@@ -3,9 +3,11 @@ import { createServiceClient } from "@/lib/server/admin";
 import { serverEnv } from "@/lib/server/env";
 
 // Email delivery for rows that SQL functions queued in public.notifications
-// (decision D4). This is the only place that uses the service-role key. Rows are
-// claimed with status 'sending' first so the cron job and a Server Action never
-// send the same email twice. A failed email never blocks the approval itself.
+// (decision D4). Rows are claimed with status 'sending' and a claim time first,
+// so the cron job and a Server Action do not send the same row twice; a row is
+// taken back only when its claim is older than CLAIM_TIMEOUT. The provider also
+// receives the row id as an idempotency key. A failed email never blocks the
+// approval itself.
 
 type Kind =
   | "review_requested"
@@ -15,7 +17,9 @@ type Kind =
   | "approved_all"
   | "documents_verified"
   | "documents_requested"
-  | "check_issued";
+  | "check_issued"
+  | "check_voided"
+  | "email_changed";
 
 const TEMPLATES: Record<Kind, { subject: (no: string) => string; body: string }> = {
   review_requested: {
@@ -50,13 +54,25 @@ const TEMPLATES: Record<Kind, { subject: (no: string) => string; body: string }>
     subject: (no) => `[교회 지출청구] 수표가 발행되었습니다 (${no})`,
     body: "수표가 발행되었습니다. 주일에 재정부에서 받으시거나 우편으로 받습니다. / Your check has been issued.",
   },
+  check_voided: {
+    subject: (no) => `[교회 지출청구] 수표가 무효 처리되었습니다 (${no})`,
+    body:
+      "재정부가 발행한 수표를 무효 처리했습니다. 새 수표를 준비하면 다시 알려 드립니다. 받으신 수표가 있으면 재정부에 돌려주세요. / " +
+      "Your check was voided; a new one will follow. Please return the old check if you have it.",
+  },
+  email_changed: {
+    subject: () => "[교회 지출청구] 알림 메일 주소가 바뀌었습니다",
+    body:
+      "교회 지출청구의 알림 메일 주소가 다른 주소로 바뀌었습니다. 본인이 바꾸지 않았다면 사무실에 바로 알려 주세요. / " +
+      "Your notification email was changed. If this was not you, please call the church office.",
+  },
 };
 
-function siteUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
+const CLAIM_TIMEOUT_MS = 10 * 60_000;
+const MAX_ATTEMPTS = 3;
+const COLUMNS = "id, claim_id, recipient_id, kind, attempts, to_address";
 
-export async function sendEmail(to: string, subject: string, text: string): Promise<void> {
+export async function sendEmail(to: string, subject: string, text: string, idempotencyKey?: string): Promise<void> {
   const key = serverEnv.resendApiKey;
   if (!key) {
     // Local development: print instead of sending.
@@ -65,83 +81,147 @@ export async function sendEmail(to: string, subject: string, text: string): Prom
   }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
     body: JSON.stringify({ from: serverEnv.mailFrom, to, subject, text }),
     cache: "no-store",
+    signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) throw new Error(`mail provider ${res.status}`);
 }
 
-type Row = { id: string; claim_id: string | null; recipient_id: string; kind: string; attempts: number };
+type Row = {
+  id: string;
+  claim_id: string | null;
+  recipient_id: string;
+  kind: string;
+  attempts: number;
+  to_address: string | null;
+};
 
 async function deliver(rows: Row[]) {
   if (rows.length === 0) return;
   const db = createServiceClient();
   const recipientIds = [...new Set(rows.map((r) => r.recipient_id))];
   const claimIds = [...new Set(rows.map((r) => r.claim_id).filter((x): x is string => !!x))];
-  const [{ data: people }, { data: claims }] = await Promise.all([
+  const [peopleRes, claimsRes] = await Promise.all([
     db.from("people").select("id, email, status").in("id", recipientIds),
-    claimIds.length ? db.from("claims").select("id, claim_no").in("id", claimIds) : Promise.resolve({ data: [] }),
+    claimIds.length ? db.from("claims").select("id, claim_no").in("id", claimIds) : Promise.resolve({ data: [], error: null }),
   ]);
-  const emailOf = new Map((people ?? []).map((p) => [p.id, p.status === "active" ? p.email : null]));
-  const noOf = new Map((claims ?? []).map((c) => [c.id, c.claim_no ?? ""]));
+  if (peopleRes.error || claimsRes.error) {
+    // A lookup failure is temporary: give the rows back instead of marking them.
+    await db.from("notifications").update({ status: "pending", claimed_at: null }).in("id", rows.map((r) => r.id)).eq("status", "sending");
+    return;
+  }
+  const emailOf = new Map((peopleRes.data ?? []).map((p) => [p.id, p.status === "active" ? p.email : null]));
+  const noOf = new Map((claimsRes.data ?? []).map((c) => [c.id, c.claim_no ?? ""]));
 
   for (const row of rows) {
-    const email = emailOf.get(row.recipient_id);
+    const mine = db.from("notifications");
     const template = TEMPLATES[row.kind as Kind];
     if (!template) {
-      await db.from("notifications").update({ status: "skipped", error: "unknown kind" }).eq("id", row.id);
+      await mine.update({ status: "skipped", error: "unknown kind" }).eq("id", row.id).eq("status", "sending");
       continue;
     }
+    const email = row.to_address ?? emailOf.get(row.recipient_id);
     if (!email) {
-      // Shown on the admin "stuck" list so the office can call instead.
-      await db.from("notifications").update({ status: "no_address" }).eq("id", row.id);
+      // Shown on the admin "stuck" list (problem notify_failed) so the office can call instead.
+      await mine.update({ status: "no_address" }).eq("id", row.id).eq("status", "sending");
       continue;
     }
-    const link = row.claim_id ? `${siteUrl()}/claims/${row.claim_id}` : siteUrl();
+    const link = row.claim_id ? `${serverEnv.appOrigin}/claims/${row.claim_id}` : serverEnv.appOrigin;
     try {
-      await sendEmail(email, template.subject(noOf.get(row.claim_id ?? "") ?? ""), `${template.body}\n\n${link}`);
-      await db.from("notifications").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", row.id);
+      await sendEmail(email, template.subject(noOf.get(row.claim_id ?? "") ?? ""), `${template.body}\n\n${link}`, row.id);
+      await mine.update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", row.id).eq("status", "sending");
     } catch (err) {
       const attempts = row.attempts + 1;
-      await db
-        .from("notifications")
-        .update({ status: attempts >= 3 ? "failed" : "pending", attempts, error: String(err).slice(0, 300) })
-        .eq("id", row.id);
+      await mine
+        .update({ status: attempts >= MAX_ATTEMPTS ? "failed" : "pending", attempts, claimed_at: null, error: String(err).slice(0, 300) })
+        .eq("id", row.id)
+        .eq("status", "sending");
     }
   }
+}
+
+async function claim(filter: { claimId?: string }): Promise<Row[]> {
+  const db = createServiceClient();
+  let q = db
+    .from("notifications")
+    .update({ status: "sending", claimed_at: new Date().toISOString() })
+    .eq("status", "pending");
+  if (filter.claimId) q = q.eq("claim_id", filter.claimId);
+  const { data } = await q.select(COLUMNS);
+  return (data ?? []) as Row[];
 }
 
 /** Send what a transition just queued for one claim. Never throws. */
 export async function dispatchClaimNotifications(claimId: string): Promise<void> {
   try {
+    await deliver(await claim({ claimId }));
+  } catch (err) {
+    console.error("[notify] dispatch failed", err);
+  }
+}
+
+/** Send a person-level notice (no claim), e.g. email_changed. Never throws. */
+export async function dispatchPersonNotifications(personId: string): Promise<void> {
+  try {
     const db = createServiceClient();
     const { data } = await db
       .from("notifications")
-      .update({ status: "sending" })
-      .eq("claim_id", claimId)
+      .update({ status: "sending", claimed_at: new Date().toISOString() })
       .eq("status", "pending")
-      .select("id, claim_id, recipient_id, kind, attempts");
+      .eq("recipient_id", personId)
+      .is("claim_id", null)
+      .select(COLUMNS);
     await deliver((data ?? []) as Row[]);
   } catch (err) {
     console.error("[notify] dispatch failed", err);
   }
 }
 
-/** Cron: retry everything still pending (including rows a crashed request left). */
+/**
+ * Names of people the latest transition of a claim will try to email but
+ * cannot, because they have no address. Lets the screen say so at once.
+ */
+export async function recipientsWithoutEmail(claimId: string): Promise<string[]> {
+  const db = createServiceClient();
+  const { data: rows } = await db
+    .from("notifications")
+    .select("recipient_id, kind")
+    .eq("claim_id", claimId)
+    .eq("status", "pending")
+    .in("kind", ["review_requested", "finance_requested"]);
+  const ids = [...new Set((rows ?? []).map((r) => r.recipient_id))];
+  if (ids.length === 0) return [];
+  const { data: people } = await db.from("people").select("name, email, status").in("id", ids);
+  return (people ?? []).filter((p) => !p.email || p.status !== "active").map((p) => p.name);
+}
+
+/** Cron: retry pending rows and rows whose claim timed out. */
 export async function dispatchAllPending(): Promise<number> {
   const db = createServiceClient();
-  // Rows stuck in 'sending' for more than 10 minutes are retried.
-  await db
+  // Take back rows whose sender died; this counts as an attempt.
+  const cutoff = new Date(Date.now() - CLAIM_TIMEOUT_MS).toISOString();
+  const { data: stale } = await db
     .from("notifications")
-    .update({ status: "pending" })
+    .select("id, attempts, claimed_at")
     .eq("status", "sending")
-    .lt("created_at", new Date(Date.now() - 10 * 60_000).toISOString());
-  const { data } = await db
-    .from("notifications")
-    .update({ status: "sending" })
-    .eq("status", "pending")
-    .select("id, claim_id, recipient_id, kind, attempts");
-  await deliver((data ?? []) as Row[]);
-  return data?.length ?? 0;
+    .or(`claimed_at.is.null,claimed_at.lt.${cutoff}`);
+  for (const s of stale ?? []) {
+    const attempts = s.attempts + 1;
+    await db
+      .from("notifications")
+      .update({ status: attempts >= MAX_ATTEMPTS ? "failed" : "pending", attempts, claimed_at: null })
+      .eq("id", s.id)
+      .eq("status", "sending")
+      // Only if nobody re-claimed it in the meantime.
+      .filter("claimed_at", s.claimed_at === null ? "is" : "eq", s.claimed_at ?? "null");
+  }
+  const rows = await claim({});
+  await deliver(rows);
+  return rows.length;
 }

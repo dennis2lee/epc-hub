@@ -2,10 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { serverEnv } from "@/lib/server/env";
 import { createServiceClient } from "@/lib/server/admin";
-import { dispatchAllPending } from "@/lib/server/notify";
+import { dispatchAllPending, sendEmail } from "@/lib/server/notify";
+import { centsToPlain } from "@/lib/money";
+import { churchDate } from "@/lib/time";
 
-// Daily job (Vercel Cron, see vercel.json): retry pending emails and send the
-// office a digest of stuck claims. Authenticated with CRON_SECRET.
+// Daily job (Vercel Cron, see vercel.json): retry pending emails, then send the
+// office and finance a digest. Authenticated with CRON_SECRET. The digest goes
+// out at most once per church-local day even if the cron fires twice.
+export const maxDuration = 60;
+
 function authorized(request: NextRequest): boolean {
   const sent = request.headers.get("authorization") ?? "";
   const expected = `Bearer ${serverEnv.cronSecret}`;
@@ -21,29 +26,86 @@ const PROBLEM: Record<string, string> = {
   no_elder: "담당 장로 미지정",
   no_independent_approver: "본인 외 결재자 없음",
   no_finance_handler: "처리할 재정 담당 없음",
+  notify_failed: "알림 메일 실패 — 전화로 알려 주세요",
 };
+
+const OLD_CHECK_DAYS = 90;
+
+async function sendAll(to: (string | null)[], subject: string, text: string): Promise<number> {
+  let sent = 0;
+  for (const email of new Set(to.filter((x): x is string => !!x))) {
+    try {
+      await sendEmail(email, subject, text);
+      sent++;
+    } catch (err) {
+      console.error("[cron] digest failed", err);
+    }
+  }
+  return sent;
+}
 
 export async function GET(request: NextRequest) {
   if (!authorized(request)) return new NextResponse("Unauthorized", { status: 401 });
 
-  const retried = await dispatchAllPending();
+  // Retrying emails must never stop the digest.
+  let retried = 0;
+  try {
+    retried = await dispatchAllPending();
+  } catch (err) {
+    console.error("[cron] retry failed", err);
+  }
 
   const db = createServiceClient();
-  const [{ data: stuck }, { data: admins }] = await Promise.all([db.rpc("stuck_digest_srv"), db.rpc("admin_emails_srv")]);
+  const { data: firstToday, error: runErr } = await db.rpc("claim_digest_run_srv");
+  if (runErr) console.error("[cron] digest run check failed", runErr.message);
+  if (firstToday !== true) return NextResponse.json({ retried, digest: "already_sent_today" });
+
+  const [{ data: stuck }, { data: admins }, { data: finance }, { data: oldChecks }] = await Promise.all([
+    db.rpc("stuck_digest_srv"),
+    db.rpc("admin_emails_srv"),
+    db.rpc("finance_emails_srv"),
+    db.rpc("old_checks_srv", { p_days: OLD_CHECK_DAYS }),
+  ]);
+  const site = serverEnv.appOrigin;
   let digestSent = 0;
-  if (stuck && stuck.length > 0 && admins && admins.length > 0) {
-    const lines = stuck.map((s) => `- ${s.claim_no ?? "작성 중"} · ${s.department} · ${PROBLEM[s.problem] ?? s.problem} · ${s.days_waiting}일째`);
-    const text = `막힌 청구서 ${stuck.length}건이 있습니다.\n\n${lines.join("\n")}\n\n${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/admin`;
-    const { sendEmail } = await import("@/lib/server/notify");
-    for (const a of admins) {
-      if (!a.email) continue;
-      try {
-        await sendEmail(a.email, `[교회 지출청구] 막힌 청구서 ${stuck.length}건`, text);
-        digestSent++;
-      } catch (err) {
-        console.error("[cron] digest failed", err);
-      }
-    }
+
+  const stuckRows = stuck ?? [];
+  const financeRows = stuckRows.filter((s) => s.problem === "no_finance_handler");
+  const checks = oldChecks ?? [];
+
+  if (stuckRows.length > 0) {
+    const lines = stuckRows.map(
+      (s) => `- ${s.claim_no ?? "작성 중"} · ${s.department} · ${PROBLEM[s.problem] ?? s.problem} · ${s.days_waiting}일째`,
+    );
+    digestSent += await sendAll(
+      (admins ?? []).map((a) => a.email),
+      `[교회 지출청구] 막힌 청구서 ${stuckRows.length}건`,
+      `막힌 청구서 ${stuckRows.length}건이 있습니다.\n\n${lines.join("\n")}\n\n${site}/admin`,
+    );
+  } else if (new Date(`${churchDate()}T12:00:00Z`).getUTCDay() === 1) {
+    // Weekly "all clear" on Mondays, so a silent cron is noticed.
+    digestSent += await sendAll(
+      (admins ?? []).map((a) => a.email),
+      "[교회 지출청구] 이번 주 막힌 청구서 없음",
+      `막힌 청구서가 없습니다. 매일 점검이 정상적으로 돌고 있습니다.\n\n${site}/admin`,
+    );
   }
-  return NextResponse.json({ retried, stuck: stuck?.length ?? 0, digestSent });
+
+  if (checks.length > 0 || financeRows.length > 0) {
+    const parts: string[] = [];
+    if (checks.length > 0) {
+      const list = checks.map((c) => `- #${c.check_no} · ${c.payee_name} · ${centsToPlain(Number(c.amount_cents))} USD · ${c.days}일`);
+      parts.push(`은행 결제가 ${OLD_CHECK_DAYS}일 넘게 확인되지 않은 수표 ${checks.length}장:\n${list.join("\n")}`);
+    }
+    if (financeRows.length > 0) {
+      parts.push(`처리할 재정 담당이 없는 청구서 ${financeRows.length}건:\n${financeRows.map((s) => `- ${s.claim_no}`).join("\n")}`);
+    }
+    digestSent += await sendAll(
+      (finance ?? []).map((f) => f.email),
+      "[교회 지출청구] 재정부 확인 필요",
+      `${parts.join("\n\n")}\n\n${site}/finance`,
+    );
+  }
+
+  return NextResponse.json({ retried, stuck: stuckRows.length, oldChecks: checks.length, digestSent });
 }

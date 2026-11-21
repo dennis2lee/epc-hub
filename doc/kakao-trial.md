@@ -17,7 +17,7 @@
    - 동의항목: 닉네임(필수)만 켠다. 이메일은 비즈 앱 전용이라 쓰지 않는다.
    - 보안 → Client Secret을 켰다면 `KAKAO_CLIENT_SECRET`에 넣는다.
    - 플랫폼 → Web 사이트 도메인에 배포 주소를 넣는다.
-4. **Supabase 대시보드** (방식 1 시험용): Authentication → Providers → Kakao 켜기, REST API 키와 Client Secret 입력, "Allow users without an email" 켜기.
+4. **Supabase 대시보드** (방식 1 시험용): Authentication → Providers → Kakao 켜기, REST API 키와 Client Secret 입력, "Allow users without an email" 켜기. 로그인 화면에 방식 1 버튼을 보이려면 환경변수 `NEXT_PUBLIC_KAKAO_OPTION1=1`을 넣는다(평소에는 숨김).
 5. **이메일 발송**: Authentication → SMTP에 메일 서비스(예: Resend)를 넣고, Email Templates의 Magic Link와 Confirm signup을 `src/supabase/templates/otp.html` 내용(`{{ .Token }}` 6자리 코드)으로 바꾼다.
 
 ## 2. 시험 방법
