@@ -43,9 +43,14 @@ function statements(sql: string): string[] {
     .filter(Boolean);
 }
 
-/** "Public"."F" and f both become public.f; a bare name means the public schema. */
+// An identifier, optionally schema-qualified, as PostgreSQL accepts it:
+// quoted or not, with optional spaces around the dot ("public" . "f").
+const PART = String.raw`(?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*)`;
+const NAME = String.raw`${PART}(?:\s*\.\s*${PART})?`;
+
+/** public.f, "public" . "f" and f all become public.f (bare = public schema). */
 function normalize(name: string): string {
-  const n = name.replace(/"/g, "").toLowerCase();
+  const n = name.replace(/\s*\.\s*/g, ".").replace(/"/g, "").toLowerCase();
   return n.includes(".") ? n : `public.${n}`;
 }
 
@@ -53,10 +58,13 @@ function normalize(name: string): string {
 export function createdObjects(sql: string): Set<string> {
   const out = new Set<string>();
   for (const s of statements(sql)) {
-    const fn = /\bcreate\s+(or\s+replace\s+)?(function|procedure)\s+([\w."]+)\s*\(/i.exec(s);
+    const fn = new RegExp(String.raw`\bcreate\s+(or\s+replace\s+)?(function|procedure)\s+(${NAME})\s*\(`, "i").exec(s);
     if (fn) out.add(normalize(fn[3]));
     const rel =
-      /\bcreate\s+(or\s+replace\s+)?(temp(orary)?\s+|unlogged\s+)?(table|view|materialized\s+view|sequence)\s+(if\s+not\s+exists\s+)?([\w."]+)/i.exec(s);
+      new RegExp(
+        String.raw`\bcreate\s+(or\s+replace\s+)?(temp(orary)?\s+|unlogged\s+)?(table|view|materialized\s+view|sequence)\s+(if\s+not\s+exists\s+)?(${NAME})`,
+        "i",
+      ).exec(s);
     if (rel) out.add(normalize(rel[6]));
   }
   return out;
@@ -90,7 +98,7 @@ function breakingRevoke(stmt: string, existing: Set<string>): boolean {
   // "function f(int), g" / "table t, v" / "sequence s" / bare "t": the name is
   // the leading identifier of each item; an argument list is optional.
   const list = target.replace(/^(functions?|routines?|procedures?|table|sequence)\s+/i, "");
-  const names = topLevelItems(list).map((item) => /^[\w."]+/.exec(item)?.[0] ?? "");
+  const names = topLevelItems(list).map((item) => new RegExp(`^${NAME}`).exec(item)?.[0] ?? "");
   return names.some((n) => n && existing.has(normalize(n)));
 }
 
@@ -141,6 +149,11 @@ describe("migrations stay compatible with the running app", () => {
       "revoke all on function private.g (uuid) from authenticated;",
       "revoke select on public.v_open from authenticated;",
       "revoke usage on sequence public.seq_no from authenticated;",
+      // Spaces around the dot and quoted parts are the same name to PostgreSQL.
+      "revoke execute on function public . f from authenticated;",
+      'revoke execute on function "public" . "f" from authenticated;',
+      'revoke execute on function "public"."f"(uuid) from authenticated;',
+      "revoke select on public .claims from authenticated;",
       // Statements written out inside $$ bodies are scanned too.
       "do $$ begin execute 'drop function public.f(uuid)'; end $$;",
       "do $$ begin revoke execute on function public.f from authenticated; end $$;",
@@ -172,5 +185,8 @@ describe("migrations stay compatible with the running app", () => {
       "create materialized view m as select 1;",
     ].join("\n");
     expect([...createdObjects(sql)].sort()).toEqual(["private.x", "public.claims2", "public.m", "public.seq_no", "public.v_open"]);
+    expect([...createdObjects('create function "private" . "Y" (a int) returns int language sql as $$ select 1 $$;')]).toEqual([
+      "private.y",
+    ]);
   });
 });
