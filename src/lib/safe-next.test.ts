@@ -15,6 +15,10 @@ describe("safeNextPath", () => {
     "/\t\\evil.example",
     "/\n/evil.example",
     "javascript:alert(1)",
+    "/.//evil.example",
+    "/a/..//evil.example",
+    "/%2e//evil.example",
+    "/./%2e//evil.example",
     "",
     null,
   ])("rejects %j", (raw) => {

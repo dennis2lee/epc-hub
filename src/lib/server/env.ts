@@ -30,7 +30,11 @@ export const serverEnv = {
     return required("CRON_SECRET");
   },
   get mailFrom() {
-    return process.env.MAIL_FROM ?? "Church Intranet <no-reply@example.org>";
+    // In production an unset sender would make every message fail at the
+    // provider (unverified domain), so it is a configuration error.
+    const v = process.env.MAIL_FROM ?? "";
+    if (!v && process.env.NODE_ENV === "production") throw new Error("Missing MAIL_FROM");
+    return v || "Church Intranet <no-reply@example.org>";
   },
   get resendApiKey() {
     // When empty, emails are written to the server log instead of being sent.

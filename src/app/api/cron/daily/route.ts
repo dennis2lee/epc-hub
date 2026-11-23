@@ -57,35 +57,52 @@ export async function GET(request: NextRequest) {
 
   const db = createServiceClient();
   const { data: firstToday, error: runErr } = await db.rpc("claim_digest_run_srv");
-  if (runErr) console.error("[cron] digest run check failed", runErr.message);
+  if (runErr) {
+    console.error("[cron] digest run check failed", runErr.message);
+    return NextResponse.json({ retried, digest: "error" }, { status: 500 });
+  }
   if (firstToday !== true) return NextResponse.json({ retried, digest: "already_sent_today" });
 
-  const [{ data: stuck }, { data: admins }, { data: finance }, { data: oldChecks }] = await Promise.all([
+  const [stuckRes, adminsRes, financeRes, checksRes] = await Promise.all([
     db.rpc("stuck_digest_srv"),
     db.rpc("admin_emails_srv"),
     db.rpc("finance_emails_srv"),
     db.rpc("old_checks_srv", { p_days: OLD_CHECK_DAYS }),
   ]);
+  const rpcError = stuckRes.error ?? adminsRes.error ?? financeRes.error ?? checksRes.error;
+  if (rpcError) {
+    // Never send a partial digest or a false "all clear"; let the next call retry.
+    console.error("[cron] digest query failed", rpcError.message);
+    await db.rpc("release_digest_run_srv");
+    return NextResponse.json({ retried, digest: "error" }, { status: 500 });
+  }
+  const admins = adminsRes.data ?? [];
+  const finance = financeRes.data ?? [];
   const site = serverEnv.appOrigin;
   let digestSent = 0;
+  let digestTried = 0;
 
-  const stuckRows = stuck ?? [];
+  const stuckRows = stuckRes.data ?? [];
   const financeRows = stuckRows.filter((s) => s.problem === "no_finance_handler");
-  const checks = oldChecks ?? [];
+  const checks = checksRes.data ?? [];
 
   if (stuckRows.length > 0) {
     const lines = stuckRows.map(
-      (s) => `- ${s.claim_no ?? "작성 중"} · ${s.department} · ${PROBLEM[s.problem] ?? s.problem} · ${s.days_waiting}일째`,
+      (s) =>
+        `- ${s.claim_no ?? "작성 중"} · ${s.department} · 작성 ${s.author} · ${s.waiting_on ? `${s.waiting_on} 차례 · ` : ""}` +
+        `${PROBLEM[s.problem] ?? s.problem} · ${s.days_waiting}일째`,
     );
+    digestTried++;
     digestSent += await sendAll(
-      (admins ?? []).map((a) => a.email),
+      admins.map((a) => a.email),
       `[교회 지출청구] 막힌 청구서 ${stuckRows.length}건`,
       `막힌 청구서 ${stuckRows.length}건이 있습니다.\n\n${lines.join("\n")}\n\n${site}/admin`,
     );
   } else if (new Date(`${churchDate()}T12:00:00Z`).getUTCDay() === 1) {
     // Weekly "all clear" on Mondays, so a silent cron is noticed.
+    digestTried++;
     digestSent += await sendAll(
-      (admins ?? []).map((a) => a.email),
+      admins.map((a) => a.email),
       "[교회 지출청구] 이번 주 막힌 청구서 없음",
       `막힌 청구서가 없습니다. 매일 점검이 정상적으로 돌고 있습니다.\n\n${site}/admin`,
     );
@@ -100,12 +117,16 @@ export async function GET(request: NextRequest) {
     if (financeRows.length > 0) {
       parts.push(`처리할 재정 담당이 없는 청구서 ${financeRows.length}건:\n${financeRows.map((s) => `- ${s.claim_no}`).join("\n")}`);
     }
+    digestTried++;
     digestSent += await sendAll(
-      (finance ?? []).map((f) => f.email),
+      finance.map((f) => f.email),
       "[교회 지출청구] 재정부 확인 필요",
       `${parts.join("\n\n")}\n\n${site}/finance`,
     );
   }
 
+  // Finish the day only if a mail went out (or there was nothing to send);
+  // otherwise the next call after ten minutes tries again.
+  if (digestTried === 0 || digestSent > 0) await db.rpc("finish_digest_run_srv");
   return NextResponse.json({ retried, stuck: stuckRows.length, oldChecks: checks.length, digestSent });
 }

@@ -6,6 +6,7 @@ import { deleteDraft, saveAndSubmit, saveDraft, type DraftInput } from "../actio
 import { errorMessage } from "@/lib/i18n";
 import { formatCents, parseDollarsToCents } from "@/lib/money";
 import { ConfirmSheet } from "@/app/components/confirm-sheet";
+import { CancelClaim } from "./cancel-claim";
 
 type Line = { description: string; amount: string; budget_code: string };
 
@@ -322,10 +323,13 @@ export function DraftEditor(props: Props) {
         </button>
       </section>
 
-      {props.round === 0 && (
+      {props.round === 0 ? (
         <button type="button" className="link-danger" onClick={() => setConfirmDelete(true)} disabled={pending}>
           이 청구서 지우기 <span className="en">Delete draft</span>
         </button>
+      ) : (
+        // A claim that already has a number is cancelled (kept on record), not deleted.
+        <CancelClaim claimId={claimId} version={version} onBeforeCancel={() => setSaved(JSON.stringify({ form, lines }))} />
       )}
       {confirmDelete && (
         <ConfirmSheet

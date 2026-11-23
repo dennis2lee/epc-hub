@@ -245,14 +245,14 @@ isOneToOne: false
                   ]
                 },"digest_runs": {
                   Row: {
-                    "at": string,"run_date": string
+                    "at": string,"claimed_at": string | null,"run_date": string,"sent_at": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "at"?: string,"run_date": string
+                    "at"?: string,"claimed_at"?: string | null,"run_date": string,"sent_at"?: string | null
                   }
                   Update: {
-                    "at"?: string,"run_date"?: string
+                    "at"?: string,"claimed_at"?: string | null,"run_date"?: string,"sent_at"?: string | null
                   }
                   Relationships: [
                     
@@ -480,6 +480,14 @@ isOneToOne: false
 "admin_assign_position":
 { Args: { "p_department": string,"p_ends_on": string,"p_person": string,"p_role": string,"p_starts_on": string }; Returns: string
                            },
+"admin_author_waiting":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "author": string,"author_status": Database["public"]['Enums']["person_status"],"claim_id": string,"claim_no": string,"days_waiting": number,"department": string,"status": Database["public"]['Enums']["claim_status"],"version": number
+            }[]
+                           },
+"admin_cancel_claim":
+{ Args: { "p_claim": string,"p_reason": string,"p_version": number }; Returns: undefined
+                           },
 "admin_confirm_in_person":
 { Args: { "p_person": string }; Returns: undefined
                            },
@@ -500,9 +508,22 @@ isOneToOne: false
 "admin_end_position":
 { Args: { "p_ends_on": string,"p_position": string }; Returns: undefined
                            },
+"admin_grant":
+{ Args: { "p_basis": string,"p_kind": string,"p_person": string }; Returns: string
+                           },
+"admin_list_grants":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "basis": string,"grant_kind": string,"granted_at": string,"id": string,"name": string,"person_id": string
+            }[]
+                           },
 "admin_people":
 { Args: Record<PropertyKey, never>; Returns: {
-              "has_email": boolean,"id": string,"in_person_checked_at": string,"logins": number,"name": string,"needs_in_person_check": boolean,"phone_last4": string,"status": Database["public"]['Enums']["person_status"]
+              "has_email": boolean,"id": string,"in_person_checked_at": string,"login_methods": string,"logins": number,"name": string,"needs_in_person_check": boolean,"phone_last4": string,"status": Database["public"]['Enums']["person_status"]
+            }[]
+                           },
+"admin_person_detail":
+{ Args: { "p_person": string }; Returns: {
+              "church_title": string,"email": string,"id": string,"legal_name_en": string,"login_methods": string,"name": string,"phone_e164": string,"status": Database["public"]['Enums']["person_status"]
             }[]
                            },
 "admin_reactivate_person":
@@ -511,8 +532,20 @@ isOneToOne: false
 "admin_reassign_current_step":
 { Args: { "p_claim": string,"p_reason": string,"p_version": number }; Returns: string
                            },
+"admin_relink_person":
+{ Args: { "p_person": string,"p_reason": string }; Returns: undefined
+                           },
+"admin_revoke":
+{ Args: { "p_grant": string,"p_reason": string }; Returns: undefined
+                           },
 "admin_set_person_status":
 { Args: { "p_person": string,"p_status": Database["public"]['Enums']["person_status"] }; Returns: undefined
+                           },
+"admin_update_person":
+{ Args: { "p_church_title": string,"p_email": string,"p_legal_name_en": string,"p_name": string,"p_person": string,"p_phone_e164": string,"p_reason": string }; Returns: undefined
+                           },
+"bootstrap_first_admin":
+{ Args: { "p_auth_user": string,"p_basis": string,"p_email": string,"p_name": string,"p_phone_e164": string }; Returns: string
                            },
 "can_i_handle_finance":
 { Args: { "p_claim": string }; Returns: boolean
@@ -562,6 +595,12 @@ isOneToOne: false
               "author": string,"author_id": string,"check_delivery": Database["public"]['Enums']["check_delivery"],"claim_id": string,"claim_no": string,"department": string,"dup_warning": boolean,"late": boolean,"single_approver": boolean,"status": Database["public"]['Enums']["claim_status"],"submitted_at": string,"total_cents": number
             }[]
                            },
+"finish_digest_run_srv":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"invite_open_srv":
+{ Args: { "p_token": string }; Returns: boolean
+                           },
 "invite_preview":
 { Args: { "p_token": string }; Returns: Json
                            },
@@ -595,6 +634,9 @@ isOneToOne: false
 "record_payment":
 { Args: { "p_check_amount_cents": number,"p_check_no": string,"p_claims": (string)[],"p_issued_on": string,"p_memo": string }; Returns: string
                            },
+"release_digest_run_srv":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
 "remove_attachment":
 { Args: { "p_attachment": string }; Returns: Json
                            },
@@ -612,12 +654,12 @@ isOneToOne: false
                            },
 "stuck_claims":
 { Args: Record<PropertyKey, never>; Returns: {
-              "claim_id": string,"claim_no": string,"days_waiting": number,"department": string,"problem": string,"status": Database["public"]['Enums']["claim_status"],"version": number,"waiting_on": string
+              "author": string,"claim_id": string,"claim_no": string,"days_waiting": number,"department": string,"problem": string,"status": Database["public"]['Enums']["claim_status"],"version": number,"waiting_on": string
             }[]
                            },
 "stuck_digest_srv":
 { Args: Record<PropertyKey, never>; Returns: {
-              "claim_no": string,"days_waiting": number,"department": string,"problem": string
+              "author": string,"claim_no": string,"days_waiting": number,"department": string,"problem": string,"waiting_on": string
             }[]
                            },
 "submit_claim":

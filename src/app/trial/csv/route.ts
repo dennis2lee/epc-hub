@@ -1,6 +1,9 @@
 // Server-generated CSV download. Blob downloads do not work inside the Android
 // KakaoTalk webview, so files must come from a real HTTP response.
+import { trialPagesEnabled } from "@/lib/server/trial";
+
 export function GET() {
+  if (!trialPagesEnabled()) return new Response("Not found", { status: 404 });
   const rows = [
     ["문서번호", "부서", "금액", "상태"],
     ["2027-0001", "유년부", "128.40", "시험"],

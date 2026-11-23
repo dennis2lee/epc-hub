@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { startRevision, withdrawClaim } from "../actions";
+import { CancelClaim } from "./cancel-claim";
 
 type Props = {
   claimId: string;
@@ -61,6 +62,7 @@ export function AuthorActions(props: Props) {
           고쳐서 다시 올리기 <span className="en">Revise</span>
         </button>
       )}
+      {props.status === "rejected" && <CancelClaim claimId={props.claimId} version={props.version} />}
     </section>
   );
 }

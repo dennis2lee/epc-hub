@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { errorCode, errorMessage } from "@/lib/i18n";
 import { after } from "next/server";
-import { dispatchClaimNotifications } from "@/lib/server/notify";
+import { dispatchClaimNotifications, dispatchPersonNotifications } from "@/lib/server/notify";
 import { serverEnv } from "@/lib/server/env";
 
 export type AdminResult = { ok: true; value?: string } | { ok: false; error: string };
@@ -25,7 +25,20 @@ const ADMIN_ERRORS: Record<string, string> = {
   name_required: "이름을 넣어 주세요.",
   not_suspended: "정지된 분이 아닙니다.",
   use_confirm_in_person: "사용 시작은 '대면 확인 완료'로 해 주세요.",
+  is_suspended: "정지된 분입니다. 먼저 정지를 풀어 주세요.",
+  not_cancellable: "이 상태의 청구서는 사무실에서 취소할 수 없습니다. 결재자나 재정부가 먼저 돌려보내야 합니다.",
+  author_active: "작성자가 사용 중입니다. 작성자 본인이 취소해야 합니다.",
+  stale_or_closed: "그사이 바뀌었습니다. 새로 보기를 눌러 주세요.",
+  grantee_not_cleared: "대면 확인을 마친 사용 중인 분에게만 권한을 줄 수 있습니다.",
+  already_granted: "이미 그 권한이 있습니다.",
+  auditor_not_independent: "감사위원은 관리자·재정 담당과 겸할 수 없습니다.",
+  last_admin: "마지막 관리자의 권한은 거둘 수 없습니다.",
+  bad_email: "메일 주소를 확인해 주세요.",
 };
+
+// Reasons that go into the audit log must say something (D20 uses 5 characters).
+const auditReason = z.string().trim().min(5).max(300);
+const REASON_SHORT: AdminResult = { ok: false, error: "이유를 다섯 글자 이상 적어 주세요." };
 
 const id = z.guid();
 const invalid: AdminResult = { ok: false, error: "입력 내용을 확인해 주세요." };
@@ -183,6 +196,119 @@ export async function reassignStep(claimId: string, version: number, reason: str
   });
   if (error) return fail(error);
   after(() => dispatchClaimNotifications(claimId));
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+export async function relinkPerson(personId: string, reason: string): Promise<AdminResult> {
+  if (!id.safeParse(personId).success) return invalid;
+  if (!auditReason.safeParse(reason).success) return REASON_SHORT;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_relink_person", { p_person: personId, p_reason: reason });
+  if (error) return fail(error);
+  after(() => dispatchPersonNotifications(personId));
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+export type PersonDetail = {
+  id: string;
+  name: string;
+  legal_name_en: string | null;
+  phone_e164: string | null;
+  email: string | null;
+  church_title: string | null;
+  status: string;
+  login_methods: string | null;
+};
+
+export async function getPersonDetail(personId: string): Promise<{ ok: true; person: PersonDetail } | { ok: false; error: string }> {
+  if (!id.safeParse(personId).success) return { ok: false, error: "입력 내용을 확인해 주세요." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_person_detail", { p_person: personId });
+  if (error) {
+    const r = fail(error);
+    return { ok: false, error: r.ok ? "" : r.error };
+  }
+  const person = (data ?? [])[0];
+  if (!person) return { ok: false, error: ADMIN_ERRORS.not_found };
+  return { ok: true, person };
+}
+
+export async function updatePerson(formData: FormData): Promise<AdminResult> {
+  const phone = toE164(String(formData.get("phone") ?? ""));
+  if (!phone) return { ok: false, error: "휴대폰 번호를 확인해 주세요. 예: (213) 555-0100" };
+  const fields = z
+    .object({
+      person: z.guid(),
+      name: z.string().trim().min(1).max(50),
+      legalNameEn: z.string().trim().max(100),
+      email: z.email().max(254).or(z.literal("")),
+      title: z.string().trim().max(20),
+      reason: z.string().trim().max(300),
+    })
+    .safeParse({
+      person: String(formData.get("person") ?? ""),
+      name: String(formData.get("name") ?? ""),
+      legalNameEn: String(formData.get("legalNameEn") ?? ""),
+      email: String(formData.get("email") ?? "").trim(),
+      title: String(formData.get("title") ?? ""),
+      reason: String(formData.get("reason") ?? ""),
+    });
+  if (!fields.success) return invalid;
+  const v = fields.data;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_update_person", {
+    p_person: v.person,
+    p_name: v.name,
+    p_legal_name_en: v.legalNameEn,
+    p_phone_e164: phone,
+    p_email: v.email,
+    p_church_title: v.title,
+    p_reason: v.reason,
+  });
+  if (error) return fail(error);
+  after(() => dispatchPersonNotifications(v.person));
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+export async function cancelClaimAsAdmin(claimId: string, version: number, reason: string): Promise<AdminResult> {
+  if (!id.safeParse(claimId).success || !Number.isInteger(version)) return invalid;
+  if (!auditReason.safeParse(reason).success) return REASON_SHORT;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_cancel_claim", { p_claim: claimId, p_version: version, p_reason: reason });
+  if (error) return fail(error);
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+export async function grantRole(formData: FormData): Promise<AdminResult> {
+  const parsed = z
+    .object({ person: z.guid(), kind: z.enum(["admin", "auditor"]), basis: auditReason })
+    .safeParse({
+      person: String(formData.get("person") ?? ""),
+      kind: String(formData.get("kind") ?? ""),
+      basis: String(formData.get("basis") ?? ""),
+    });
+  if (!parsed.success) return { ok: false, error: "사람, 권한, 근거(예: 2026-12 당회 결의)를 넣어 주세요." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_grant", {
+    p_person: parsed.data.person,
+    p_kind: parsed.data.kind,
+    p_basis: parsed.data.basis,
+  });
+  if (error) return fail(error);
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+export async function revokeGrant(grantId: string, reason: string): Promise<AdminResult> {
+  if (!id.safeParse(grantId).success) return invalid;
+  if (!auditReason.safeParse(reason).success) return REASON_SHORT;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_revoke", { p_grant: grantId, p_reason: reason });
+  if (error) return fail(error);
   revalidatePath("/admin");
   return { ok: true };
 }

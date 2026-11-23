@@ -3,6 +3,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { MAX_RECEIPT_BYTES, sniffReceiptType } from "@/lib/server/file-type";
+import { trialPagesEnabled } from "@/lib/server/trial";
 
 export type UploadResult =
   | { ok: true; name: string; mime: string; bytes: number; sha256: string; path: string }
@@ -15,6 +16,7 @@ export type UploadResult =
  * used for real receipts in M2.
  */
 export async function uploadTrialFile(formData: FormData): Promise<UploadResult> {
+  if (!trialPagesEnabled()) return { ok: false, error: "시험 기간이 끝났습니다." };
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;

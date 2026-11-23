@@ -10,6 +10,8 @@ type Props = {
   confirmLabelEn: string;
   danger?: boolean;
   pending?: boolean;
+  /** Disables only the confirm button (e.g. a required reason is still empty). */
+  confirmDisabled?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -46,7 +48,7 @@ export function ConfirmSheet(props: Props) {
             type="button"
             className={props.danger ? "btn btn-danger" : "btn btn-main"}
             onClick={props.onConfirm}
-            disabled={props.pending}
+            disabled={props.pending || props.confirmDisabled}
           >
             {props.pending ? "처리 중…" : props.confirmLabel} <span className="en">{props.confirmLabelEn}</span>
           </button>

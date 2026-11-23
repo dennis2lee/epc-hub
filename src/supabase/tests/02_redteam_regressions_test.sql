@@ -25,13 +25,16 @@ begin
   return public.add_attachment_srv(p_uid, p_claim, p_claim::text || '/' || p_name, p_sha, null, null, null);
 end $$;
 -- Draft + one receipt for an author, ready to submit (runs as postgres).
+-- Amounts differ per claim so the same-amount-and-date duplicate hint stays off.
+create temp sequence amt start 1000;
+grant usage on sequence pg_temp.amt to authenticated;
 create function pg_temp.ready_claim(p_uid uuid, p_dept uuid, p_sha text) returns uuid language plpgsql as $$
 declare v uuid;
 begin
   perform pg_temp.login(p_uid);
   v := public.create_claim(p_dept);
   perform public.save_claim_draft(v, 1, p_dept, '테스트', null, (select d from td), 'pickup',
-                                  '[{"description":"x","amount_cents":1000}]');
+                                  jsonb_build_array(jsonb_build_object('description', 'x', 'amount_cents', nextval('pg_temp.amt'))));
   perform pg_temp.logout();
   perform pg_temp.attach(v, p_uid, 'r-' || left(p_sha, 6) || '.jpg', p_sha);
   return v;

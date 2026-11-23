@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { getMe, isActive } from "@/lib/server/session";
+import { unreachableSince } from "@/lib/server/notify";
 import { AccountGate, CallOffice } from "@/app/components/account-gate";
 import { StatusLabel } from "@/app/components/status-label";
 import { formatCents } from "@/lib/money";
@@ -75,6 +76,8 @@ async function ClaimView({ params }: Props) {
         : claim.status === "rejected"
           ? `작성자 ${author?.name ?? ""}님`
           : null;
+  // Only say "we emailed" when every hand-off notice for this step could go out.
+  const unreachable = myDecision && !isAuthor ? await unreachableSince(claim.id, claim.updated_at).catch(() => []) : [];
 
   let preview: { seq: number; roles: string[]; approver_name: string }[] = [];
   let previewError: string | null = null;
@@ -244,8 +247,14 @@ async function ClaimView({ params }: Props) {
           </p>
           <p className="muted">
             {myDecision.decided_at ? formatChurchDateTime(myDecision.decided_at) : ""}
-            {notifiedNext ? ` · ${notifiedNext}께 메일로 알렸습니다.` : ""}
+            {notifiedNext && unreachable.length === 0 ? ` · ${notifiedNext}께 메일로 알렸습니다.` : ""}
           </p>
+          {unreachable.length > 0 && (
+            <p className="notice">
+              {unreachable.join(", ")}님께 메일을 보내지 못했습니다. 카톡이나 전화로 알려 주세요.
+              {"\n"}Could not email {unreachable.join(", ")}. Please tell them by KakaoTalk or phone.
+            </p>
+          )}
           <Link className="btn btn-main" href="/">
             내가 볼 다른 청구서 <span className="en">Back to my list</span>
           </Link>

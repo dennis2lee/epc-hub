@@ -1,6 +1,8 @@
 -- Private bucket used only by the /trial page to test uploads from the
 -- KakaoTalk in-app browser. Each user can only write and read their own folder.
--- Delete this bucket and its policies after the device trial.
+-- NOT a migration: it must never reach production. Loaded locally by
+-- `db reset` (config.toml seed paths) and applied by hand to the preview
+-- project for the device trial (doc/kakao-trial.md). Drop it there afterwards.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('trial', 'trial', false, 4194304,
         array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])

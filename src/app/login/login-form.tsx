@@ -3,6 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
+import { mayCreateLogin } from "./actions";
 import { detectInApp, externalBrowserUrl } from "@/lib/inapp";
 
 // Option 1 (Supabase's built-in Kakao provider) is only for the device trial.
@@ -69,18 +70,27 @@ export function LoginForm({ next, error }: Props) {
     setBusy(true);
     setMessage(null);
     const supabase = createClient();
+    const allowCreate = await mayCreateLogin().catch(() => false);
     const { error: err } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: allowCreate },
     });
     setBusy(false);
-    if (err) {
+    if (err && (err.status === 429 || allowCreate)) {
       setMessage(err.status === 429 ? TOO_MANY : SEND_FAILED);
       return;
     }
+    // Without an invite, an unknown address gets the same answer as a known one
+    // (no account enumeration), with a hint for people who first linked another way.
     setStage("code");
     remember({ email: email.trim(), stage: "code" });
-    setMessage(`${email.trim()}(으)로 6자리 코드를 보냈습니다. 메일함을 확인해 주세요.\nWe sent a 6-digit code to ${email.trim()}.`);
+    setMessage(
+      allowCreate
+        ? `${email.trim()}(으)로 6자리 코드를 보냈습니다. 메일함을 확인해 주세요.\nWe sent a 6-digit code to ${email.trim()}.`
+        : `${email.trim()}이(가) 등록된 주소라면 6자리 코드를 보냈습니다. 메일함을 확인해 주세요.\n` +
+            "코드가 오지 않으면 처음 연결할 때 쓴 방법(카카오 또는 다른 메일)으로 로그인하시거나 사무실에 연락해 주세요.\n" +
+            `If ${email.trim()} is registered, we sent a 6-digit code. If none arrives, sign in the way you first did, or call the office.`,
+    );
   }
 
   async function verifyCode(e: React.FormEvent) {

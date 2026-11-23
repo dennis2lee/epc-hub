@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceClient } from "@/lib/server/admin";
 import { serverEnv } from "@/lib/server/env";
+import { formatCents } from "@/lib/money";
 
 // Email delivery for rows that SQL functions queued in public.notifications
 // (decision D4). Rows are claimed with status 'sending' and a claim time first,
@@ -19,7 +20,8 @@ type Kind =
   | "documents_requested"
   | "check_issued"
   | "check_voided"
-  | "email_changed";
+  | "email_changed"
+  | "login_reset";
 
 const TEMPLATES: Record<Kind, { subject: (no: string) => string; body: string }> = {
   review_requested: {
@@ -52,13 +54,19 @@ const TEMPLATES: Record<Kind, { subject: (no: string) => string; body: string }>
   },
   check_issued: {
     subject: (no) => `[교회 지출청구] 수표가 발행되었습니다 (${no})`,
-    body: "수표가 발행되었습니다. 주일에 재정부에서 받으시거나 우편으로 받습니다. / Your check has been issued.",
+    body: "수표가 발행되었습니다. / Your check has been issued.",
   },
   check_voided: {
     subject: (no) => `[교회 지출청구] 수표가 무효 처리되었습니다 (${no})`,
     body:
       "재정부가 발행한 수표를 무효 처리했습니다. 새 수표를 준비하면 다시 알려 드립니다. 받으신 수표가 있으면 재정부에 돌려주세요. / " +
       "Your check was voided; a new one will follow. Please return the old check if you have it.",
+  },
+  login_reset: {
+    subject: () => "[교회 지출청구] 로그인 연결이 초기화되었습니다",
+    body:
+      "사무실에서 교회 지출청구의 로그인 연결을 초기화했습니다. 새 초대 링크로 다시 연결해 주세요. 요청한 적이 없다면 사무실에 바로 알려 주세요. / " +
+      "The office reset your sign-in. Please reconnect with the new invite link. If you did not ask for this, call the church office.",
   },
   email_changed: {
     subject: () => "[교회 지출청구] 알림 메일 주소가 바뀌었습니다",
@@ -109,7 +117,9 @@ async function deliver(rows: Row[]) {
   const claimIds = [...new Set(rows.map((r) => r.claim_id).filter((x): x is string => !!x))];
   const [peopleRes, claimsRes] = await Promise.all([
     db.from("people").select("id, email, status").in("id", recipientIds),
-    claimIds.length ? db.from("claims").select("id, claim_no").in("id", claimIds) : Promise.resolve({ data: [], error: null }),
+    claimIds.length
+      ? db.from("claims").select("id, claim_no, purpose, total_cents, check_delivery, author_id").in("id", claimIds)
+      : Promise.resolve({ data: [], error: null }),
   ]);
   if (peopleRes.error || claimsRes.error) {
     // A lookup failure is temporary: give the rows back instead of marking them.
@@ -117,7 +127,13 @@ async function deliver(rows: Row[]) {
     return;
   }
   const emailOf = new Map((peopleRes.data ?? []).map((p) => [p.id, p.status === "active" ? p.email : null]));
-  const noOf = new Map((claimsRes.data ?? []).map((c) => [c.id, c.claim_no ?? ""]));
+  const claimOf = new Map((claimsRes.data ?? []).map((c) => [c.id, c]));
+  // Author names for the summary line, so a mail is recognisable at a glance.
+  const authorIds = [...new Set((claimsRes.data ?? []).map((c) => c.author_id))];
+  const { data: authors } = authorIds.length
+    ? await db.from("people").select("id, name").in("id", authorIds)
+    : { data: [] as { id: string; name: string }[] };
+  const authorName = new Map((authors ?? []).map((a) => [a.id, a.name]));
 
   for (const row of rows) {
     const mine = db.from("notifications");
@@ -133,8 +149,20 @@ async function deliver(rows: Row[]) {
       continue;
     }
     const link = row.claim_id ? `${serverEnv.appOrigin}/claims/${row.claim_id}` : serverEnv.appOrigin;
+    const c = row.claim_id ? claimOf.get(row.claim_id) : undefined;
+    const summary = c
+      ? `${authorName.get(c.author_id) ?? ""}님 · ${formatCents(Number(c.total_cents))} · ${c.purpose}`.slice(0, 120)
+      : "";
+    const delivery =
+      row.kind === "check_issued" && c
+        ? c.check_delivery === "mail"
+          ? "\n수표는 우편으로 보내 드립니다. / The check will be mailed to you."
+          : "\n수표는 주일에 재정부에서 받으세요. / Please pick up the check from finance on Sunday."
+        : "";
+    const subject = template.subject(c?.claim_no ?? "") + (summary ? ` ${summary}` : "");
+    const text = `${summary ? `${summary}\n\n` : ""}${template.body}${delivery}\n\n${link}`;
     try {
-      await sendEmail(email, template.subject(noOf.get(row.claim_id ?? "") ?? ""), `${template.body}\n\n${link}`, row.id);
+      await sendEmail(email, subject, text, row.id);
       await mine.update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", row.id).eq("status", "sending");
     } catch (err) {
       const attempts = row.attempts + 1;
@@ -187,6 +215,18 @@ export async function dispatchPersonNotifications(personId: string): Promise<voi
  * Names of people the latest transition of a claim will try to email but
  * cannot, because they have no address. Lets the screen say so at once.
  */
+// Notices that tell someone else to act or that money is coming. "you_approved"
+// goes to the actor themself and is not a hand-off.
+const HANDOFF_KINDS = [
+  "review_requested",
+  "finance_requested",
+  "changes_requested",
+  "documents_requested",
+  "check_ready",
+  "check_issued",
+  "check_voided",
+];
+
 export async function recipientsWithoutEmail(claimId: string): Promise<string[]> {
   const db = createServiceClient();
   const { data: rows } = await db
@@ -194,11 +234,34 @@ export async function recipientsWithoutEmail(claimId: string): Promise<string[]>
     .select("recipient_id, kind")
     .eq("claim_id", claimId)
     .eq("status", "pending")
-    .in("kind", ["review_requested", "finance_requested"]);
+    .in("kind", HANDOFF_KINDS);
   const ids = [...new Set((rows ?? []).map((r) => r.recipient_id))];
   if (ids.length === 0) return [];
   const { data: people } = await db.from("people").select("name, email, status").in("id", ids);
   return (people ?? []).filter((p) => !p.email || p.status !== "active").map((p) => p.name);
+}
+
+/** Names of people who could not be emailed about this claim since `sinceIso`
+ *  (no address, or sending failed). Used so a screen never claims "we emailed". */
+export async function unreachableSince(claimId: string, sinceIso: string): Promise<string[]> {
+  const db = createServiceClient();
+  const { data: rows } = await db
+    .from("notifications")
+    .select("recipient_id, status")
+    .eq("claim_id", claimId)
+    .gte("created_at", sinceIso)
+    .in("kind", HANDOFF_KINDS);
+  if (!rows || rows.length === 0) return [];
+  const ids = [...new Set(rows.map((r) => r.recipient_id))];
+  const { data: people } = await db.from("people").select("id, name, email").in("id", ids);
+  const byId = new Map((people ?? []).map((p) => [p.id, p]));
+  const out = new Set<string>();
+  for (const r of rows) {
+    const p = byId.get(r.recipient_id);
+    if (!p) continue;
+    if (r.status === "no_address" || r.status === "failed" || !p.email) out.add(p.name);
+  }
+  return [...out];
 }
 
 /** Cron: retry pending rows and rows whose claim timed out. */

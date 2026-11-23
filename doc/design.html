@@ -1095,7 +1095,7 @@ grant  execute on function public.act_on_claim to authenticated;</code></pre>
       <h3 id="be-api">API 목록</h3>
       <div class="tbl"><table class="t">
         <tr><th>동작</th><th>형태</th><th>권한</th><th>메모</th></tr>
-        <tr><td>초대 보기 · 수락</td><td><code>GET /invite/[token]</code> → 로그인 → 뒤 4자리 확인 <code>POST</code></td><td>초대 소지자</td><td>토큰은 짧은 수명 쿠키로 보존</td></tr>
+        <tr><td>초대 보기 · 수락</td><td><code>GET /invite/[token]</code>(토큰을 httpOnly 쿠키로 옮기고 <code>/invite</code>로) → 로그인 → 뒤 4자리 확인 <code>acceptInvite</code></td><td>초대 소지자</td><td>토큰은 7일 쿠키로만 보존, 주소에 다시 나오지 않음(D28). 메일 코드는 초대 쿠키가 있을 때만 새 계정을 만든다(D27)</td></tr>
         <tr><td>임시저장 · 영수증</td><td><code>saveDraft</code>, Storage 서명 업로드 URL</td><td>작성자</td><td>업로드 후 서버가 형식·크기 검증, sha256 기록</td></tr>
         <tr><td>제출 · 가져오기 · 고치기</td><td><code>submit_claim</code> 등</td><td>작성자</td><td>성공 후 다음 사람에게 메일</td></tr>
         <tr><td>승인 · 보완 요청</td><td><code>act_on_claim</code></td><td>현재 단계 결재자</td><td><code>version</code>과 IP·브라우저를 함께 보낸다</td></tr>
@@ -1104,7 +1104,10 @@ grant  execute on function public.act_on_claim to authenticated;</code></pre>
         <tr><td>수표 무효 · 결제 기록 · 정정</td><td><code>void_payment</code>, <code>mark_check_cleared</code>, <code>unmark_check_cleared</code></td><td>재정부원 + 재정 담당 장로</td><td>결제 기록은 발행자 외 다른 사람. 모든 사건은 <code>payment_events</code>에 추가만</td></tr>
         <tr><td>인쇄용 청구서</td><td><code>GET /claims/[id]/print</code></td><td>읽기 권한자</td><td>계좌 정보 없음</td></tr>
         <tr><td>월별 CSV</td><td><code>GET /api/finance/export?month=2027-03</code>, <code>?kind=outstanding</code></td><td>재정부원 · 감사위원</td><td>발행월 기준. 내려받기는 감사 로그에 남는다. 회계 프로그램 형식은 B3에서 확정</td></tr>
-        <tr><td>매일 점검</td><td><code>GET /api/cron/daily</code></td><td>Cron 비밀키</td><td>알림 재시도, 막힌 건·오래된 수표 요약(하루 한 번)</td></tr>
+        <tr><td>매일 점검</td><td><code>GET /api/cron/daily</code></td><td>Cron 비밀키</td><td>알림 재시도, 막힌 건·오래된 수표 요약(하루 한 번, 보낸 뒤에만 끝냄. 조회 실패 시 500, D39)</td></tr>
+        <tr><td>사람 관리</td><td><code>admin_update_person</code>, <code>admin_relink_person</code></td><td>관리자</td><td>본인 불가. 연결된 분은 사유 필수, 이전 메일로 안내(D29, D31)</td></tr>
+        <tr><td>권한</td><td><code>admin_grant</code>, <code>admin_revoke</code>, <code>bootstrap_first_admin</code>(service role, 1회)</td><td>관리자</td><td>대면 확인된 분에게만, 근거 필수, 감사위원 겸직 금지, 마지막 관리자 보호(D30)</td></tr>
+        <tr><td>떠난 교인 청구 취소</td><td><code>admin_cancel_claim</code></td><td>관리자</td><td>작성자가 정지된 경우의 작성 중(번호 있음)·보완 요청 건만(D32)</td></tr>
       </table></div>
 
       <h3 id="be-ops">배포 · 백업 · 비용</h3>
@@ -1228,6 +1231,7 @@ grant  execute on function public.act_on_claim to authenticated;</code></pre>
         <tr><td>v5</td><td>미국 전제(USD, +1, 미국 리전, IRS·ESIGN·UETA)와 2차 레드팀 5개 관점 반영: MVP 절단(약 130~220시간), 알림톡 제외와 이메일 알림, 이메일 코드 로그인, 수표·Zelle 지급 모델, 계좌번호 미수집, 해시 체인 제거와 독립 사본, 운영 규정·등록 확인서, 관리자 일괄 등록·비상 승인자·재지정, 쉬운 용어와 영어 병기</td></tr>
         <tr><td>v5.1</td><td>지급은 수표로만 한다(U2). Zelle·교회 카드 지급 선택지와 관련 필드를 뺐다. 교회 카드 결제는 현재 버전에서 범위 밖(U3)</td></tr>
         <tr><td>v5.2</td><td>구현 M2·M3 레드팀 반영(D11 개정, D17~D26): 영수증은 서버만 저장, 수표 무효·재발행, 결제 기록의 발행자 분리, 발행월 기준 CSV, 확인 뒤 반송, 수표 금액 대조, 화면 한·영 병기. 상세는 <code>doc/decisions.md</code>와 <code>doc/reviews/</code></td></tr>
+        <tr><td>v5.3</td><td>구현 M4 레드팀 반영(D27~D39): 초대 토큰 쿠키, 초대 없는 계정 생성 차단, 로그인 다시 연결, 관리자 앱 권한 부여·첫 관리자 설정 함수, 교인 정보 수정, 떠난 교인 청구 사무실 취소, 막힌 건 기준 8일·10일, 같은 날 같은 금액 중복 경고, 장애 중 수표 금지, 주간 암호화 백업, 시험 버킷 운영 제외, 미리보기의 운영 DB 차단. 상세는 <code>doc/decisions.md</code>와 <code>doc/reviews/</code></td></tr>
       </table></div>
     </section>
 

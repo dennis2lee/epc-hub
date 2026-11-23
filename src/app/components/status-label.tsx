@@ -5,7 +5,7 @@ const LABELS: Record<string, { ko: string; en: string }> = {
   in_review: { ko: "결재 중", en: "In review" },
   rejected: { ko: "보완 요청 받음", en: "Changes requested" },
   approved: { ko: "재정부 확인 대기", en: "Awaiting finance" },
-  received: { ko: "수표 준비됨", en: "Check ready" },
+  received: { ko: "서류 확인됨 · 수표 준비 중", en: "Verified, check pending" },
   paid: { ko: "수표 발행됨", en: "Check issued" },
   cancelled: { ko: "취소됨", en: "Cancelled" },
   deleted: { ko: "삭제됨", en: "Deleted" },

@@ -213,8 +213,11 @@ export async function submitClaim(claimId: string, version: number): Promise<Act
   }
   const warning = await afterTransition(claimId);
   const result = data as { duplicate_warning?: boolean; late?: boolean };
+  // The same-amount-and-date hint is set by a trigger after the function's own check.
+  const { data: flags } = await supabase.from("claims").select("dup_warning").eq("id", claimId).maybeSingle();
+  if (flags?.dup_warning) result.duplicate_warning = true;
   const notes = [];
-  if (result.duplicate_warning) notes.push("같은 영수증이 이미 다른 청구서에 있는 것 같습니다. 재정부가 확인합니다.");
+  if (result.duplicate_warning) notes.push("같은 영수증이나 같은 날 같은 금액의 청구가 이미 있는 것 같습니다. 재정부가 확인합니다.\nThis may duplicate an earlier claim; finance will check.");
   if (result.late) notes.push("사용일에서 60일이 지난 청구입니다.");
   if (warning) notes.push(warning);
   return { ok: true, message: notes.join("\n") || undefined };

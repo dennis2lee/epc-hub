@@ -36,12 +36,13 @@ test("finance verifies, records a check and exports CSV", async ({ browser }) =>
   const fin = await finCtx.newPage();
   await signIn(fin, "finance@church.test", claimPath);
   await fin.getByRole("button", { name: /서류 확인 완료/ }).click();
-  await expect(fin.getByText("수표 준비됨")).toBeVisible();
+  await expect(fin.getByText("서류 확인됨 · 수표 준비 중")).toBeVisible();
 
   await fin.goto("/finance");
   const row = fin.locator("li", { hasText: claimNo });
   await row.locator('input[type="checkbox"]').check();
-  const checkNo = String(Date.now()).slice(-6);
+  // No leading zero: check numbers are stored without it (D24).
+  const checkNo = `9${String(Date.now()).slice(-5)}`;
   await fin.locator("#check-no").fill(checkNo);
   // The typed check amount must match the selected claims.
   await fin.locator("#check-amount").fill("50.00");

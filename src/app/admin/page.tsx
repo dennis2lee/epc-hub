@@ -21,11 +21,13 @@ async function Admin() {
     );
   }
 
-  const [{ data: stuck }, { data: people }, { data: departments }, { data: positions }] = await Promise.all([
+  const [{ data: stuck }, { data: people }, { data: departments }, { data: positions }, { data: authorWaiting }, { data: grants }] = await Promise.all([
     supabase.rpc("stuck_claims"),
     supabase.rpc("admin_people"),
     supabase.from("departments").select("id, name, parent_id, is_finance, active").order("name"),
     supabase.from("positions").select("id, person_id, department_id, role, starts_on, ends_on").order("starts_on"),
+    supabase.rpc("admin_author_waiting"),
+    supabase.rpc("admin_list_grants"),
   ]);
 
   return (
@@ -36,6 +38,8 @@ async function Admin() {
       people={people ?? []}
       departments={departments ?? []}
       positions={positions ?? []}
+      authorWaiting={authorWaiting ?? []}
+      grants={grants ?? []}
     />
   );
 }

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { assertNotProdFromPreview } from "@/lib/prod-guard";
 
 /**
  * Refresh the Supabase session cookie on every page request. This is only a
@@ -11,6 +12,7 @@ export async function proxy(request: NextRequest) {
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  assertNotProdFromPreview(url);
   if (!url || !key) {
     if (process.env.NODE_ENV === "production") throw new Error("Supabase env missing: session refresh disabled");
     return response;

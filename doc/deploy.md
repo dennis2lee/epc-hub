@@ -6,11 +6,12 @@ Supabase·Vercel·카카오·Resend 계정은 교회 공용 계정으로 만든�
 
 | 항목 | 메모 |
 |---|---|
-| Supabase 프로젝트 2개 | `intra-net-prod`(운영, Pro 권장), `intra-net-preview`(미리보기, 무료). 리전은 미국 서부 |
-| Vercel 프로젝트 1개 | GitHub `dennis2lee/intra-net` 연결 |
-| 도메인 | 예: `claims.<교회도메인>` |
-| Resend | 보내는 도메인 인증(SPF·DKIM) |
-| 카카오 개발자 앱 | `doc/kakao-trial.md` 1~4단계 |
+| Supabase 프로젝트 2개 | `intra-net-prod`(운영, **Pro 필수**: 무료는 백업이 없고 7일 쉬면 멈춘다), `intra-net-preview`(미리보기, 무료). 리전은 미국 서부(`us-west-1`) |
+| Vercel 프로젝트 1개 | GitHub `dennis2lee/intra-net` 연결. 함수 리전은 `vercel.json`의 `sfo1`(Supabase와 같은 서부) |
+| 도메인 | 예: `claims.<교회도메인>`(운영), `preview.<교회도메인>`(미리보기 고정 주소) |
+| Resend | 보내는 도메인 인증(SPF·DKIM). 앱 알림과 Supabase 인증 메일(로그인 코드)이 함께 쓴다 |
+| 카카오 개발자 앱 | `doc/kakao-trial.md` 1~5단계 |
+| age 키 한 쌍 | 백업 암호화용(`doc/operations.md` 7장). 공개 키만 백업 설정에 넣는다 |
 
 ## 1. DB (운영과 미리보기 각각)
 
@@ -32,25 +33,62 @@ npx supabase link --workdir src --project-ref <프로젝트 ref>
 npx supabase db push --workdir src
 ```
 
-- `seed.sql`은 운영에 넣지 않는다(가상 인물). 첫 관리자는 SQL 편집기에서 `people`, `admin_grants`를 직접 넣고, 첫 로그인 뒤 `person_logins`를 연결한다. 이 작업은 감사 기록에 "초기 설정"으로 남긴다.
-- `20261121000050_trial_bucket.sql`의 `trial` 버킷은 카카오 실기기 시험이 끝나면 지우는 마이그레이션을 추가한다.
-- Auth 설정: Site URL = 운영 도메인, Redirect URLs = `https://<도메인>/auth/callback**`. 이메일 템플릿(매직 링크·가입 확인)은 `src/supabase/templates/otp.html` 내용으로 바꾼다(6자리 코드).
-- 카카오 공급자(방식 1 시험 시): 대시보드에서 켜고 "Allow users without an email"을 켠다.
+- `seed.sql`과 `seeds/`는 운영에 넣지 않는다(가상 인물, 시험 버킷). `db push`는 시드를 넣지 않는다.
+- **운영에 `trial` 버킷이 없는지 확인한다**(Storage 화면). 미리보기 프로젝트에만 실기기 시험 때 SQL 편집기로 `src/supabase/seeds/trial_bucket.sql`을 넣고, 시험이 끝나면 버킷과 정책을 지운다(D37).
+
+### 1-1. Auth 설정 (대시보드, 두 프로젝트 모두)
+
+`db push`는 `src/supabase/config.toml`의 인증 설정을 옮기지 않는다. 아래를 손으로 맞춘다. 하나라도 빠지면 주일 등록 데스크에서 로그인 코드가 오지 않는다.
+
+| 화면 | 설정 | 값 |
+|---|---|---|
+| Authentication → URL Configuration | Site URL | 운영 `https://<도메인>`, 미리보기 `https://preview.<도메인>` |
+| 같은 화면 | Redirect URLs | `https://<그 도메인>/auth/callback**` |
+| Authentication → Emails → SMTP | Custom SMTP | 켬. Resend SMTP, 보내는 이름 "○○교회 지출청구" |
+| Authentication → Emails → Templates | Magic Link, Confirm signup | `src/supabase/templates/otp.html` 내용(6자리 코드) |
+| Authentication → Providers → Email | Confirm email | 켬 |
+| 같은 화면 | Email OTP expiration | 600초(10분) |
+| 같은 화면 | Email OTP length | 6 (로그인 화면이 6자리만 받는다) |
+| Authentication → Rate Limits | 메일 발송 | 시간당 100통 이상(등록 데스크 한 번에 40명 기준) |
+| 같은 화면 | 같은 주소 재요청 간격 | 60초 ("코드 다시 받기는 1분 뒤") |
+| Authentication → Providers → Kakao | 켬 | **방식 2(운영 버튼)도 이 설정이 필요하다.** Client ID = `KAKAO_REST_API_KEY`, "Allow users without an email" 켬 |
+
+### 1-2. 첫 관리자 (운영, 한 번만)
+
+1. 첫 관리자가 운영 주소의 로그인 화면에서 메일 코드로 한 번 로그인한다. "등록되지 않은 계정" 화면이 나오면 정상이다.
+   - 초대 없이 새 계정을 만들 수 없으므로(D27), 계정 소유자가 Supabase 대시보드 Authentication → Users → "Add user"로 그 메일 주소를 먼저 만든다.
+2. 대시보드 Authentication → Users에서 그 사용자의 UID를 복사한다.
+3. SQL 편집기에서 아래를 실행한다(service role 권한). 감사 기록에 "초기 설정"으로 남는다. 관리자가 이미 있으면 거부된다.
+
+```sql
+select public.bootstrap_first_admin('<UID>', '<이름>', '+1XXXXXXXXXX', '<메일>', '<당회 결의 날짜 등 근거>');
+```
+
+4. 그 뒤 모든 일은 앱의 관리자 화면에서 한다. 두 번째 관리자·감사위원 권한도 관리자 화면 → **관리자·감사위원 권한**에서 준다(D30). 첫 관리자의 대면 확인은 두 번째 관리자가 한다.
 
 ## 2. Vercel 환경변수
 
 | 변수 | Production | Preview |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` | 운영 프로젝트 값 | **미리보기 프로젝트 값** |
-| `NEXT_PUBLIC_SITE_URL` | `https://<도메인>` | 미리보기 배포 주소 |
+| `SUPABASE_PROD_REF` | 운영 프로젝트 ref | **같은 값(필수)**. 미리보기가 운영 DB를 가리키면 시작하지 않는다(D38) |
+| `NEXT_PUBLIC_SITE_URL` | `https://<도메인>` | `https://preview.<도메인>`(고정 주소. 배포마다 바뀌는 주소를 쓰면 카카오 로그인이 실패한다) |
 | `NEXT_PUBLIC_CHURCH_TIME_ZONE` | `America/Los_Angeles` (교회 확인) | 같음 |
 | `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET` | 카카오 앱 값 | 같음 |
 | `CRON_SECRET` | 32자 이상 임의 문자열 | 다른 값 |
-| `RESEND_API_KEY`, `MAIL_FROM` | 운영 값 | 테스트 키 (운영 빌드에서는 비우면 오류가 난다. 메일 내용이 로그에 남지 않게 하려는 장치) |
+| `RESEND_API_KEY`, `MAIL_FROM` | 운영 값. 둘 다 없으면 운영에서 오류로 멈춘다 | 테스트 키, 같은 형식의 보내는 주소 |
 | `NEXT_PUBLIC_OFFICE_PHONE` | 사무실 번호 | 같음 |
 | `NEXT_PUBLIC_KAKAO_OPTION1` | 비움 | 실기기 시험 때만 `1` |
+| `TRIAL_PAGES` | **비움** | 실기기 시험 때만 `1` |
 
-미리보기 배포가 운영 DB를 가리키지 않는지 반드시 확인한다(설계서 12장 "운영 DB 보호").
+- Vercel에서 변수를 추가할 때 기본값이 "모든 환경"이다. 범위를 반드시 골라 넣는다. 다 넣은 뒤 아래로 확인한다.
+
+```bash
+npx vercel env ls
+```
+
+- 미리보기 고정 주소(`preview.<도메인>`)는 Vercel → Domains에서 `main`이 아닌 미리보기 브랜치에 연결한다. 카카오 앱과 미리보기 Supabase Redirect URLs에도 이 주소를 넣는다.
+- Vercel → Deployment Protection: 교인이 미리보기 주소를 카톡에서 열면 Vercel 로그인 화면이 나온다. 실기기 시험 기간에만 그 고정 주소의 보호를 끈다.
 
 ## 3. 배포와 확인
 
@@ -64,10 +102,20 @@ curl -s -o /dev/null -w "%{http_code}\n" https://<도메인>/api/cron/daily
 
 401이 나와야 한다(비밀값 없이 호출).
 
-4. 관리자 계정으로 로그인 → 관리자 화면 → 사람 등록·초대 링크 → 본인 휴대폰으로 연결 → 대면 확인 → 시험 청구 한 건을 끝까지 → 수표 무효 처리로 정리.
-5. `doc/device-checklist.md`를 실기기로 진행한다.
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://<도메인>/trial
+```
+
+404가 나와야 한다(시험 화면이 꺼져 있음).
+
+4. 메일 확인: 관리자 계정으로 로그인 코드를 받아 본다(인증 메일). 관리자 화면에서 시험용 교인을 메일과 함께 등록하고 시험 청구를 올려 알림 메일이 오는지 본다(앱 메일). 둘 다 스팸함이 아니라 받은편지함에 와야 한다.
+5. 관리자 계정으로 시험 청구 한 건을 끝까지 진행한다. 사람 등록 → 초대 링크 → 본인 휴대폰 연결 → 대면 확인 → 결재 → 서류 확인 → 수표 기록 → 수표 무효 처리로 정리.
+6. 백업을 한 번 받고 복원을 해 본다(`doc/operations.md` 7장).
+7. `doc/device-checklist.md`를 실기기로 진행한다.
+8. `doc/operations.md`의 **시범 시작 전 점검표**를 끝낸다.
 
 ## 4. 되돌리기
 
 - 앱: Vercel에서 이전 배포로 "Promote to Production".
-- DB: 마이그레이션은 되돌리지 않는다. 고치는 마이그레이션을 새로 추가해 같은 경로(1장)로 적용한다. 데이터 손상은 Supabase 백업(Pro: 일일, PITR 선택)으로 복원한다.
+- DB: 마이그레이션은 되돌리지 않는다. 고치는 마이그레이션을 새로 추가해 같은 경로(1장)로 적용한다.
+- 데이터 손상: Supabase 백업(Pro: 일일, PITR 선택)으로 DB를 복원한다. **Supabase 백업에는 영수증 파일(Storage)이 없다.** 영수증은 주간 백업(`npm run backup`)에서 되살린다. DB만 복원하면 첨부 행은 있는데 파일이 없는 청구가 생길 수 있다.

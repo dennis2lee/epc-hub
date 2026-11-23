@@ -16,5 +16,9 @@ export function safeNextPath(raw: string | null | undefined, fallback = "/"): st
     return fallback;
   }
   if (parsed.origin !== BASE) return fallback;
-  return parsed.pathname + parsed.search + parsed.hash;
+  // Dot segments are resolved by the parser ("/.//evil.com" -> "//evil.com"),
+  // so the normalized output must be checked again.
+  const out = parsed.pathname + parsed.search + parsed.hash;
+  if (!out.startsWith("/") || out.startsWith("//")) return fallback;
+  return out;
 }
