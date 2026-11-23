@@ -29,6 +29,17 @@ test("write, submit and approve a claim", async ({ browser }) => {
   await expect(writer.locator(".thumbs a")).toHaveCount(1);
   await expect(writer.locator("#draft-purpose")).toHaveValue("E2E 성탄 행사 간식");
 
+  // Opening the receipt redirects to a short signed URL on the public API host
+  // (the server signs it on the local gateway, D47) and the image comes back.
+  const receiptHref = (await writer.locator(".thumbs a").first().getAttribute("href"))!;
+  const signed = await writer.request.get(receiptHref, { maxRedirects: 0 });
+  expect(signed.status()).toBe(302);
+  const location = new URL(signed.headers()["location"]);
+  expect(location.origin).toBe(new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321").origin);
+  expect(location.pathname).toMatch(/^\/storage\/v1\/object\/sign\/receipts\//);
+  const image = await writer.request.get(location.toString());
+  expect(image.status()).toBe(200);
+
   await expect(writer.getByText(/부장 박부장 → 담당 장로 이장로/)).toBeVisible();
   // One button saves what is on screen and submits it.
   await writer.locator("#submit-claim").click();
