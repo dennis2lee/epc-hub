@@ -54,6 +54,12 @@ body {
 .en { font-size: max(0.8em, 14px); font-weight: 500; color: var(--muted); margin-left: 4px; }
 .muted { color: var(--muted); }
 .stack { display: grid; gap: 12px; }
+/* Grid and flex children may shrink below their content width; without this a
+   long word or an input's intrinsic width makes the page scroll sideways on
+   narrow phones (360px), and taps then land on the wrong element. */
+.stack > *, .field > *, .line-row > *, .btn-row > *, .row-link > * { min-width: 0; }
+.field input, .field select, .field textarea { width: 100%; }
+.stack, .card, .notice, .row-link { overflow-wrap: anywhere; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
 .notice { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 14px; white-space: pre-line; }
 .notice-card { border-color: var(--warn); background: var(--warn-soft); }
@@ -69,6 +75,11 @@ body {
   color: var(--ink);
 }
 .btn {
+  /* Keep Korean words whole in narrow buttons; the English part wraps instead. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  flex-wrap: wrap;
+  column-gap: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -109,12 +120,12 @@ pre.summary { white-space: pre-wrap; font-size: 0.85rem; background: var(--navy-
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { border: 1.5px solid var(--line); border-radius: 999px; padding: 8px 14px; background: var(--surface); color: var(--ink); font-size: 0.95rem; cursor: pointer; }
 .chip[aria-pressed="true"] { border-color: var(--navy); background: var(--navy-soft); color: var(--navy); font-weight: 700; }
-.btn-row { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+.btn-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 10px; }
 .thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
 .thumbs a { display: grid; place-items: center; width: 104px; height: 104px; border-radius: 8px; border: 1px solid var(--line); overflow: hidden; background: var(--navy-soft); font-size: 0.75rem; color: var(--muted); }
 .thumbs img { width: 100%; height: 100%; object-fit: cover; }
-.line-row { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: end; }
-@media (max-width: 420px) { .line-row { grid-template-columns: 1fr 100px auto; } }
+.line-row { display: grid; grid-template-columns: minmax(0, 1fr) 120px auto; gap: 8px; align-items: end; }
+@media (max-width: 420px) { .line-row { grid-template-columns: minmax(0, 1fr) 100px auto; } }
 
 /* Radio and checkbox rows with a large touch area. */
 .choice { display: flex; align-items: center; gap: 12px; min-height: 48px; cursor: pointer; }

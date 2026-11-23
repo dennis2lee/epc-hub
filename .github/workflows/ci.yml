@@ -60,6 +60,8 @@ jobs:
           MAIL_FROM: "Church Intranet <no-reply@example.org>"
         run: |
           npx playwright install --with-deps chromium
+          # Korean text as Android phones draw it (Noto CJK), not a fallback font.
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
           npm run test:e2e
       - name: Keep the E2E report on failure
         if: failure()
