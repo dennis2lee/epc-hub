@@ -13,6 +13,6 @@
 | 종류 | 명령 | 건수 |
 |---|---|---|
 | DB(pgTAP) | `npm run db:test` | 155 |
-| 단위(Vitest) | `npm test` | 51 (마이그레이션 호환 검사 포함) |
+| 단위(Vitest) | `npm test` | 52 (마이그레이션 호환 검사 포함) |
 | 통합(Vitest, 로컬 스택) | `npm run test:int` | 8 (동시 제출·동시 승인·제출 중 영수증 빼기 포함) |
 | E2E(Playwright, Pixel 7) | `npm run test:e2e` | 7 (작성·결재, 보완 요청, 재정·무효, Cron, 관리자, 초대·다시 연결, 확인 대기 중 임시저장) |

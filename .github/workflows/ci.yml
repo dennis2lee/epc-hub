@@ -31,6 +31,7 @@ jobs:
 
   database:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       SUPABASE_AUTH_EXTERNAL_KAKAO_CLIENT_ID: ci-placeholder
       SUPABASE_AUTH_EXTERNAL_KAKAO_SECRET: ci-placeholder
@@ -49,3 +50,23 @@ jobs:
         run: |
           node src/scripts/local-env.mjs
           npm run test:int
+      # Screens on a phone-sized browser against the same local stack (the dev
+      # server is started by Playwright). Values below are local-only test values.
+      - name: E2E (Playwright)
+        env:
+          CRON_SECRET: local-cron-secret
+          NEXT_PUBLIC_CHURCH_TIME_ZONE: America/Los_Angeles
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          MAIL_FROM: "Church Intranet <no-reply@example.org>"
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+      - name: Keep the E2E report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            build/playwright-report
+            build/playwright
+          retention-days: 7

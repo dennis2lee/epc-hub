@@ -327,7 +327,7 @@ figcaption b { color: var(--ink); font-weight: 600; }
       <div class="kpi"><div class="n">9 + 9</div><div class="l">화면 · 서버 라우트</div></div>
       <div class="kpi"><div class="n">20</div><div class="l">DB 테이블</div></div>
       <div class="kpi"><div class="n">101</div><div class="l">DB 함수 (공개 60 · 내부 41)</div></div>
-      <div class="kpi"><div class="n">221</div><div class="l">자동 테스트 (4종)</div></div>
+      <div class="kpi"><div class="n">222</div><div class="l">자동 테스트 (4종)</div></div>
       <div class="kpi"><div class="n">63</div><div class="l">기록된 결정 (A·U·D)</div></div>
       <div class="kpi"><div class="n">7</div><div class="l">사용자 역할</div></div>
     </div>
@@ -989,17 +989,17 @@ figcaption b { color: var(--ink); font-weight: 600; }
 
   <h3 id="l3-repo">저장소 구성</h3>
   <div class="tree" role="table" aria-label="저장소 폴더와 규모">
-    <div class="r"><span class="p">intra-net/</span><span class="lines">줄 수</span><span class="d">설명</span></div>
-    <div class="r"><span class="p">├─ src/app/            48개</span><span><span class="bar" style="width:100%;display:block"></span></span><span class="d">화면·서버 액션·라우트 · 5,259줄</span></div>
-    <div class="r"><span class="p">├─ src/lib/            25개</span><span><span class="bar" style="width:34%;display:block"></span></span><span class="d">Supabase 클라이언트, 금액·시간대·문구, 서버 전용 코드 · 1,805줄</span></div>
+    <div class="r"><span class="p">epc-hub/</span><span class="lines">줄 수</span><span class="d">설명</span></div>
+    <div class="r"><span class="p">├─ src/app/            48개</span><span><span class="bar" style="width:100%;display:block"></span></span><span class="d">화면·서버 액션·라우트 · 5,291줄</span></div>
+    <div class="r"><span class="p">├─ src/lib/            25개</span><span><span class="bar" style="width:34%;display:block"></span></span><span class="d">Supabase 클라이언트, 금액·시간대·문구, 서버 전용 코드 · 1,813줄</span></div>
     <div class="r"><span class="p">├─ src/supabase/</span><span></span><span class="d">Supabase CLI 작업 폴더 (<code>--workdir src</code>)</span></div>
-    <div class="r"><span class="p">│  ├─ migrations/      12개</span><span><span class="bar db" style="width:87%;display:block"></span></span><span class="d">테이블·RLS·결재 함수 · 4,588줄</span></div>
-    <div class="r"><span class="p">│  ├─ tests/            5개</span><span><span class="bar db" style="width:15%;display:block"></span></span><span class="d">pgTAP 155건 · 838줄</span></div>
+    <div class="r"><span class="p">│  ├─ migrations/      13개</span><span><span class="bar db" style="width:88%;display:block"></span></span><span class="d">테이블·RLS·결재 함수 · 4,659줄</span></div>
+    <div class="r"><span class="p">│  ├─ tests/            5개</span><span><span class="bar db" style="width:16%;display:block"></span></span><span class="d">pgTAP 155건 · 838줄</span></div>
     <div class="r"><span class="p">│  └─ seed.sql, seeds/</span><span></span><span class="d">로컬 가상 데이터, 시험 버킷</span></div>
-    <div class="r"><span class="p">├─ src/tests/          11개</span><span><span class="bar" style="width:10%;display:block"></span></span><span class="d">통합(동시성·Storage), E2E(Playwright), 마이그레이션 호환 검사 · 669줄</span></div>
-    <div class="r"><span class="p">├─ src/ops/            17개</span><span><span class="bar ops" style="width:11%;display:block"></span></span><span class="d">맥미니 설치·배포·백업·복원, launchd, Tunnel · 579줄</span></div>
+    <div class="r"><span class="p">├─ src/tests/          11개</span><span><span class="bar" style="width:14%;display:block"></span></span><span class="d">통합(동시성·Storage), E2E(Playwright), 마이그레이션 호환 검사 · 743줄</span></div>
+    <div class="r"><span class="p">├─ src/ops/            17개</span><span><span class="bar ops" style="width:11%;display:block"></span></span><span class="d">맥미니 설치·배포·백업·복원, launchd, Tunnel · 588줄</span></div>
     <div class="r"><span class="p">├─ src/scripts/         3개</span><span><span class="bar ops" style="width:4%;display:block"></span></span><span class="d">백업, 영수증 복원, 로컬 환경 파일 생성 · 220줄</span></div>
-    <div class="r"><span class="p">├─ doc/                16개</span><span><span class="bar doc" style="width:48%;display:block"></span></span><span class="d">설계서, 결정, 절차서 (한국어)</span></div>
+    <div class="r"><span class="p">├─ doc/                21개</span><span><span class="bar doc" style="width:48%;display:block"></span></span><span class="d">설계서, 결정, 절차서 (한국어)</span></div>
     <div class="r"><span class="p">└─ build/</span><span></span><span class="d">빌드·테스트 산출물. 커밋하지 않음</span></div>
   </div>
   <p class="flow-note">파일 수와 줄 수는 2026-11-23 기준 Git에 들어 있는 파일로 셌습니다(이 보고서 제외).</p>
@@ -1290,17 +1290,17 @@ figcaption b { color: var(--ink); font-weight: 600; }
   <div class="pyr" aria-label="테스트 구성">
     <div class="e"><b>7</b>E2E · Playwright (Pixel 7)</div>
     <div class="i"><b>8</b>통합 · 동시 제출·동시 승인·Storage</div>
-    <div class="u"><b>51</b>단위 · 금액·CSV·주소·파일 형식·운영 보호·마이그레이션 호환</div>
+    <div class="u"><b>52</b>단위 · 금액·CSV·주소·파일 형식·운영 보호·마이그레이션 호환</div>
     <div class="d"><b>155</b>DB · pgTAP (결재 규칙·권한·보안 회귀)</div>
   </div>
   <div class="tw"><table>
     <thead><tr><th>종류</th><th>명령</th><th>무엇을 지키나</th></tr></thead>
     <tbody>
       <tr><td class="nw">DB</td><td class="nw"><code>npm run db:test</code></td><td>작성부터 지급까지, 작성자≠결재자≠지급자, RLS, 알려진 보안 구멍의 재발 방지</td></tr>
-      <tr><td class="nw">단위</td><td><code>npm test</code></td><td>센트 계산, CSV 형식, 돌아갈 주소, 파일 서명, 운영 DB 보호, 메일 템플릿 사본 일치, 새 마이그레이션의 삭제·이름 바꾸기 금지</td></tr>
+      <tr><td class="nw">단위</td><td><code>npm test</code></td><td>센트 계산, CSV 형식, 돌아갈 주소, 파일 서명, 운영 DB 보호, 메일 템플릿 사본 일치, 새 마이그레이션의 삭제·이름 바꾸기·열 형식 변경·기존 권한 회수 금지</td></tr>
       <tr><td class="nw">통합</td><td><code>npm run test:int</code></td><td>DB 연결 두 개로 동시에 누르기, 제출 중 영수증 빼기</td></tr>
       <tr><td class="nw">E2E</td><td><code>npm run test:e2e</code></td><td>작성·결재, 보완 요청, 재정·무효, 매일 점검, 관리자, 초대·다시 연결, 확인 대기 중 임시저장 (영수증 열람 포함)</td></tr>
-      <tr><td class="nw">CI</td><td>GitHub Actions</td><td>main push와 PR마다 린트·타입·단위 테스트·빌드(<code>check</code>), 로컬 Supabase를 띄운 pgTAP·통합 테스트(<code>database</code>). E2E는 CI에서 돌리지 않고 로컬에서 돌림</td></tr>
+      <tr><td class="nw">CI</td><td>GitHub Actions</td><td>main push와 PR마다 린트·타입·단위 테스트·빌드(<code>check</code>), 로컬 Supabase를 띄운 pgTAP·통합 테스트·E2E(<code>database</code>)</td></tr>
     </tbody>
   </table></div>
 
@@ -1372,7 +1372,7 @@ figcaption b { color: var(--ink); font-weight: 600; }
     <div class="card">
       <h4>확인된 것</h4>
       <ul class="check">
-        <li class="done">자동 테스트 4종 221건 통과 (CI는 DB·단위·빌드, E2E는 로컬)</li>
+        <li class="done">자동 테스트 4종 222건 통과 (모두 CI에서 실행)</li>
         <li class="done">개발용 맥에서 운영 구성 전체 시험 통과</li>
         <li class="done">배포 · 되돌리기 · 백업 · 전체 삭제 후 복원</li>
         <li class="done">운영 빌드로 E2E 6건, 영수증 해시 일치</li>
