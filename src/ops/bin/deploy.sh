@@ -54,7 +54,11 @@ git -C "$REPO" fetch -q origin
 sha=$(git -C "$REPO" rev-parse "${1:-origin/main}^{commit}")
 git -C "$REPO" merge-base --is-ancestor "$sha" origin/main || { echo "refusing: $sha is not on origin/main" >&2; exit 1; }
 short=$(printf '%s' "$sha" | cut -c1-12)
-ci=$(gh run list -R dennis2lee/epc-hub --commit "$sha" --json conclusion -q '.[0].conclusion' 2>/dev/null || true)
+# Only the CI workflow counts (the Docs workflow also runs on main). The latest
+# completed CI run for this exact commit must have succeeded.
+ci=$(gh run list -R dennis2lee/epc-hub --workflow ci.yml --commit "$sha" --limit 20 \
+  --json status,conclusion,createdAt \
+  -q '[.[] | select(.status == "completed")] | sort_by(.createdAt) | last | .conclusion // ""' 2>/dev/null || true)
 [ "$ci" = "success" ] || { echo "refusing: CI for $short is '${ci:-unknown}'" >&2; exit 1; }
 
 # A new folder every time, so redeploying the live commit never touches the
@@ -72,6 +76,11 @@ npm ci --include=dev --no-audit --no-fund
 
 # The DB admin URL lives in deploy.env, never in app.env.
 (load_env "$CHURCH_HOME/deploy.env"; npx --no-install supabase db push --workdir src --remote="$DATABASE_ADMIN_URL")
+# PostgREST caches the schema. Reload it now so new or replaced functions are
+# callable before the new app starts (Supabase's DDL trigger usually does this;
+# the explicit notice makes it certain).
+docker exec "${DB_CONTAINER:-supabase-db}" psql -v ON_ERROR_STOP=1 -q -U supabase_admin -d postgres \
+  -c "notify pgrst, 'reload schema'"
 
 old=$(readlink "$CHURCH_HOME/current" 2>/dev/null || true)
 switch_to "$dest"

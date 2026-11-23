@@ -13,6 +13,35 @@ export function CallOffice({ main = false }: { main?: boolean }) {
   );
 }
 
+/**
+ * Shown to accounts waiting for the office's in-person check. They may already
+ * write and save drafts; submitting opens once the office confirms them.
+ */
+export function PendingNotice({ name, next }: { name: string; next: string }) {
+  return (
+    <div className="card stack">
+      <p className="subtitle">
+        사무실 확인 중 <span className="en">Pending</span>
+      </p>
+      <p>
+        {name}님, 사무실에서 확인하면 결재를 올릴 수 있습니다. 보통 1~2일 안에 됩니다. 그동안 청구서를 써서 임시저장해 둘 수
+        있습니다.
+        <br />
+        <span className="en">
+          The office will confirm your account, usually within 1–2 days. Meanwhile you can write and save claims.
+        </span>
+      </p>
+      <Link className="btn btn-ghost" href={next}>
+        새로 보기 <span className="en">Reload</span>
+      </Link>
+      <Link className="btn btn-ghost" href="/profile">
+        내 정보 미리 넣기 <span className="en">Fill in my info</span>
+      </Link>
+      <CallOffice />
+    </div>
+  );
+}
+
 /** Screens for everyone who is not an active member yet, each with a next action. */
 export function AccountGate({ me, next }: { me: Me; next: string }) {
   if (!me.signed_in) {
@@ -46,22 +75,11 @@ export function AccountGate({ me, next }: { me: Me; next: string }) {
   }
   if (me.status === "pending") {
     return (
-      <div className="card stack">
-        <p className="subtitle">
-          사무실 확인 중 <span className="en">Pending</span>
-        </p>
-        <p>
-          {me.name}님, 사무실에서 확인하면 바로 쓸 수 있습니다. 보통 1~2일 안에 됩니다.
-          <br />
-          <span className="en">The office will confirm your account, usually within 1–2 days.</span>
-        </p>
-        <Link className="btn btn-ghost" href={next}>
-          새로 보기 <span className="en">Reload</span>
+      <div className="stack">
+        <PendingNotice name={me.name} next={next} />
+        <Link className="btn btn-main" href="/">
+          홈으로 <span className="en">Home</span>
         </Link>
-        <Link className="btn btn-ghost" href="/profile">
-          내 정보 미리 넣기 <span className="en">Fill in my info</span>
-        </Link>
-        <CallOffice />
       </div>
     );
   }

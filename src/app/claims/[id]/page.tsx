@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { getMe, isActive } from "@/lib/server/session";
+import { canDraft, getMe } from "@/lib/server/session";
 import { unreachableSince } from "@/lib/server/notify";
 import { AccountGate, CallOffice } from "@/app/components/account-gate";
 import { StatusLabel } from "@/app/components/status-label";
@@ -21,7 +21,9 @@ const ROLE_LABEL: Record<string, string> = { dept_head: "부장", elder: "담당
 async function ClaimView({ params }: Props) {
   const { id } = await params;
   const { me, supabase } = await getMe();
-  if (!isActive(me)) return <AccountGate me={me} next={`/claims/${id}`} />;
+  if (!canDraft(me)) return <AccountGate me={me} next={`/claims/${id}`} />;
+  // Pending accounts reach only their own drafts here (the database decides).
+  const active = me.status === "active";
 
   const { data: claim } = await supabase.from("claims").select("*").eq("id", id).maybeSingle();
   if (!claim) {
@@ -81,7 +83,7 @@ async function ClaimView({ params }: Props) {
 
   let preview: { seq: number; roles: string[]; approver_name: string }[] = [];
   let previewError: string | null = null;
-  if (isAuthor && isDraft) {
+  if (isAuthor && isDraft && active) {
     const { data, error } = await supabase.rpc("preview_approval_line", { p_department: claim.department_id });
     preview = data ?? [];
     previewError = error?.message ?? null;
@@ -93,7 +95,7 @@ async function ClaimView({ params }: Props) {
   }
   const reasons = Array.isArray(settings?.value) ? (settings.value as string[]) : ["영수증 누락", "기타"];
   let canFinance = false;
-  if (claim.status === "approved" || claim.status === "received") {
+  if (active && (claim.status === "approved" || claim.status === "received")) {
     const { data } = await supabase.rpc("can_i_handle_finance", { p_claim: claim.id });
     canFinance = data === true;
   }
@@ -159,6 +161,7 @@ async function ClaimView({ params }: Props) {
             mailAddressMissing={!me.mail_address}
             preview={preview}
             previewError={previewError}
+            accountPending={!active}
             initial={{
               department: claim.department_id,
               purpose: claim.purpose,

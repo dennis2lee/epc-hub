@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { getMe, isActive } from "@/lib/server/session";
+import { canDraft, getMe } from "@/lib/server/session";
 import { AccountGate } from "@/app/components/account-gate";
 import { errorMessage } from "@/lib/i18n";
 import { createClaim } from "../actions";
@@ -11,7 +11,7 @@ type Props = { searchParams: Promise<{ error?: string }> };
 
 async function NewClaim({ searchParams }: Props) {
   const { me, supabase } = await getMe();
-  if (!isActive(me)) return <AccountGate me={me} next="/claims/new" />;
+  if (!canDraft(me)) return <AccountGate me={me} next="/claims/new" />;
   const sp = await searchParams;
   const { data: departments } = await supabase
     .from("departments")

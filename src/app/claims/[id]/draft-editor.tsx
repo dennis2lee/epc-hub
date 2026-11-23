@@ -21,6 +21,8 @@ type Props = {
   mailAddressMissing: boolean;
   preview: { seq: number; roles: string[]; approver_name: string }[];
   previewError: string | null;
+  /** Waiting for the office's check: saving works, submitting does not yet. */
+  accountPending?: boolean;
   initial: {
     department: string;
     purpose: string;
@@ -288,7 +290,12 @@ export function DraftEditor(props: Props) {
         <h2 className="subtitle">
           4. 결재 올리기 <span className="en">Submit for approval</span>
         </h2>
-        {previewErr ? (
+        {props.accountPending ? (
+          <p className="notice" role="status">
+            사무실에서 계정을 확인하면 결재를 올릴 수 있습니다. 지금은 임시저장만 됩니다.
+            {"\n"}You can submit once the office confirms your account. For now, save your draft.
+          </p>
+        ) : previewErr ? (
           <p className="notice" role="alert">
             {previewErr}
           </p>
@@ -316,7 +323,7 @@ export function DraftEditor(props: Props) {
           type="button"
           id="submit-claim"
           className="btn btn-main"
-          disabled={pending || !!previewErr || blockers.length > 0 || props.receiptCount === 0}
+          disabled={pending || props.accountPending || !!previewErr || blockers.length > 0 || props.receiptCount === 0}
           onClick={onSubmitClaim}
         >
           {pending ? "처리 중…" : "결재 올리기"} <span className="en">Submit</span>

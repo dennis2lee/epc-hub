@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { getMe, isActive } from "@/lib/server/session";
-import { AccountGate } from "@/app/components/account-gate";
+import { canDraft, getMe } from "@/lib/server/session";
+import { AccountGate, PendingNotice } from "@/app/components/account-gate";
 import { StatusLabel } from "@/app/components/status-label";
 import { formatCents } from "@/lib/money";
 import { churchDate, daysBetween, formatChurchDateTime } from "@/lib/time";
@@ -9,10 +9,12 @@ import { CallOffice } from "@/app/components/account-gate";
 
 async function Dashboard() {
   const { me, supabase } = await getMe();
-  if (!isActive(me)) return <AccountGate me={me} next="/" />;
+  if (!canDraft(me)) return <AccountGate me={me} next="/" />;
+  const active = me.status === "active";
 
+  // Pending accounts only see their own drafts; reviewing starts once active.
   const [{ data: queue }, { data: mine }] = await Promise.all([
-    supabase.rpc("my_review_queue"),
+    active ? supabase.rpc("my_review_queue") : Promise.resolve({ data: null }),
     supabase
       .from("claims")
       .select("id, claim_no, status, total_cents, purpose, updated_at, current_seq, round")
@@ -37,6 +39,8 @@ async function Dashboard() {
           내 정보 <span className="en">My info</span>
         </Link>
       </p>
+
+      {!active && <PendingNotice name={me.name} next="/" />}
 
       {queue && queue.length > 0 && (
         <section className="card stack queue-card">

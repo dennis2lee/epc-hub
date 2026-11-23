@@ -33,3 +33,11 @@ export type ActiveMe = Extract<Me, { linked: true }>;
 export function isActive(me: Me): me is ActiveMe {
   return me.signed_in && me.linked && me.status === "active";
 }
+
+/**
+ * Active members and pending accounts (waiting for the office's check) may keep
+ * drafts. Only active members submit; the database enforces both rules.
+ */
+export function canDraft(me: Me): me is ActiveMe {
+  return me.signed_in && me.linked && (me.status === "active" || me.status === "pending");
+}
