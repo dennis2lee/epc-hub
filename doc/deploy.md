@@ -45,7 +45,7 @@ Next.js 서버 → Supabase: 맥 안에서 127.0.0.1:8000으로 직접 (외부�
 | Cloudflare | `tech-media@kepc.org`로 가입. `epcsj-hub.org`를 Cloudflare Registrar에서 등록한다(DNS 자동 연결) |
 | Resend | 같은 주소로 가입. 도메인 `notify.epcsj-hub.org` 추가. API 키를 **두 개** 만든다: 로그인 코드용(Supabase), 알림용(앱). 하나가 막혀도 다른 쪽은 돈다 |
 | 카카오 개발자 | 교회 공용 카카오 계정. `doc/kakao-trial.md` 1~5단계 |
-| Google Drive | `tech-media@kepc.org`의 Drive에 `intra-net-backup` 폴더(가능하면 공유 드라이브) |
+| Google Drive | `tech-media@kepc.org`의 Drive에 `epc-hub-backup` 폴더(가능하면 공유 드라이브) |
 | age 키 한 쌍 | 맥미니가 **아닌** 컴퓨터에서 만든다. 개인 키는 USB 두 개(기술 담당용, 당회 서기 봉투용)에 둔다. 맥미니에는 공개 키만 둔다 |
 | healthchecks.io (강력 권장) | 무료. 검사 3개를 만든다: 앱 상태, 매일 점검, 백업. 멈추면 `tech-media@kepc.org`로 알림. 맥미니 전체가 꺼져도 알 수 있는 유일한 장치다 |
 
@@ -89,7 +89,7 @@ colima start --cpu 4 --memory 8 --disk 60 && colima stop
 - Colima는 홈 폴더 아래만 컨테이너에 연결한다. 운영 파일은 모두 `~/church` 아래에 둔다(리허설에서 임시 폴더를 쓰다 실패한 적이 있다).
 
 ```bash
-mkdir -p ~/church/logs ~/church/releases && git clone https://github.com/dennis2lee/intra-net.git ~/church/repo
+mkdir -p ~/church/logs ~/church/releases && git clone https://github.com/dennis2lee/epc-hub.git ~/church/repo
 ```
 
 `gh auth login`으로 저장소를 읽을 수 있게 한다. 배포 스크립트가 CI 결과를 확인하는 데 쓰며, `gh`가 없으면 배포를 거부한다.
@@ -244,7 +244,7 @@ rclone config
 | `SUPABASE_SECRET_KEY` | `supabase/.env`의 `SUPABASE_SECRET_KEY` |
 | `BACKUP_DB_URL` | `deploy.env`의 주소와 같음 |
 | `BACKUP_AGE_RECIPIENT` | age **공개** 키(`age1…`) |
-| `BACKUP_REMOTE` | `church-drive:intra-net-backup` |
+| `BACKUP_REMOTE` | `church-drive:epc-hub-backup` |
 | `HEALTHCHECK_BACKUP_URL` | healthchecks.io "백업" 주소 |
 
 3. 한 번 손으로 돌려서 Drive에 `daily/backup-<날짜>.tar.age`와 `monthly/backup-<날짜>.tar.age`가 생기는지 확인한다.

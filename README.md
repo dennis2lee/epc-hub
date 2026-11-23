@@ -1,8 +1,10 @@
-# 교회 인트라넷 · 지출청구 전자결재
+# epc-hub · 교회 인트라넷 지출청구 전자결재
 
 미국 한인교회의 종이 지출청구서를 휴대폰 웹 결재로 바꾸는 프로젝트다. 작성자가 청구서를 올리면 부장과 담당 장로가 승인하고, 재정부가 서류를 확인해 수표를 발행한다.
 
+- **문서 사이트: https://dennis2lee.github.io/epc-hub/** (설계서·구조 보고서를 바로 연다)
 - 설계서: [`doc/design.html`](doc/design.html) (브라우저로 연다)
+- 구조 보고서: [`doc/overview.html`](doc/overview.html) (전체 구조를 네 단계 깊이로, 사용자 관점 포함)
 - 결정 기록: [`doc/decisions.md`](doc/decisions.md)
 - 개발 환경 준비: [`doc/setup.md`](doc/setup.md)
 - 마일스톤과 진행 상황: [`doc/milestones.md`](doc/milestones.md)

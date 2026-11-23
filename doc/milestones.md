@@ -10,11 +10,11 @@
 | M3 | 재정·알림·문서 | 서류 확인·보완 요청, 수표 기록(여러 건 묶음), 알림 메일, 막힌 건 목록과 Cron, 인쇄본, 월별 CSV | 완료. 레드팀 반영(`doc/reviews/2026-11-21-m3-redteam.md`) |
 | M4 | 시범 준비 | Playwright 핵심 경로, 실기기 점검표, 운영 DB 보호, 운영 절차서, 운영 서버 리허설 | 진행 중. 레드팀 반영(`doc/reviews/2026-11-22-m4-redteam.md`). 운영 서버를 맥미니로 변경(D41~D46)하고 개발용 맥에서 설치·배포·백업·복원 리허설 2회 통과, 운영 레드팀 반영(`doc/reviews/2026-11-22-mac-mini-rehearsal.md`, `doc/reviews/2026-11-22-mac-mini-ops-redteam.md`). 남은 것: 맥미니 실제 설치, Cloudflare·Resend·카카오 연결, 실기기 점검 |
 
-## 현재 테스트 (2026-11-22)
+## 현재 테스트 (2026-11-23)
 
 | 종류 | 명령 | 건수 |
 |---|---|---|
 | DB(pgTAP) | `npm run db:test` | 143 |
-| 단위(Vitest) | `npm test` | 46 |
+| 단위(Vitest) | `npm test` | 48 |
 | 통합(Vitest, 로컬 스택) | `npm run test:int` | 8 (동시 제출·동시 승인·제출 중 영수증 빼기 포함) |
 | E2E(Playwright, Pixel 7) | `npm run test:e2e` | 6 (작성·결재, 보완 요청, 재정·무효, Cron, 관리자, 초대·다시 연결) |

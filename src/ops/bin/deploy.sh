@@ -54,7 +54,7 @@ git -C "$REPO" fetch -q origin
 sha=$(git -C "$REPO" rev-parse "${1:-origin/main}^{commit}")
 git -C "$REPO" merge-base --is-ancestor "$sha" origin/main || { echo "refusing: $sha is not on origin/main" >&2; exit 1; }
 short=$(printf '%s' "$sha" | cut -c1-12)
-ci=$(gh run list -R dennis2lee/intra-net --commit "$sha" --json conclusion -q '.[0].conclusion' 2>/dev/null || true)
+ci=$(gh run list -R dennis2lee/epc-hub --commit "$sha" --json conclusion -q '.[0].conclusion' 2>/dev/null || true)
 [ "$ci" = "success" ] || { echo "refusing: CI for $short is '${ci:-unknown}'" >&2; exit 1; }
 
 # A new folder every time, so redeploying the live commit never touches the

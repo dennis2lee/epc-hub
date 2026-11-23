@@ -137,7 +137,7 @@
 
 맥미니가 매일 03:30에 자동으로 백업한다(D44). 기술 담당은 매주 한 번 아래를 확인한다.
 
-- Google Drive `intra-net-backup/daily/`에 어젯밤 날짜의 `.tar.age` 파일이 있는지.
+- Google Drive `epc-hub-backup/daily/`에 어젯밤 날짜의 `.tar.age` 파일이 있는지.
 - healthchecks.io를 쓰면, 백업이 하루 빠질 때 `tech-media@kepc.org`로 알림 메일이 온다. 그 메일이 오면 `~/church/logs/backup.err.log`를 본다.
 - 백업 파일 하나에 DB 덤프와 영수증 전부가 들어 있다. 영수증은 청구번호로 이름을 붙였고, `manifest.csv`로 청구와 연결된다. 파일은 age로 암호화되어 있어 Google도 내용을 볼 수 없다.
 - 복호화 키(age 개인 키)는 맥미니에 두지 않는다. 기술 담당과 당회 서기가 USB로 나눠 갖는다(장소는 **당회 확인**).

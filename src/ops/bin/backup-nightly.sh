@@ -8,7 +8,7 @@
 set -eu
 . "$(dirname "$0")/common.sh"
 load_env "$CHURCH_HOME/backup.env"
-remote="${BACKUP_REMOTE:?set BACKUP_REMOTE, e.g. church-drive:intra-net-backup}"
+remote="${BACKUP_REMOTE:?set BACKUP_REMOTE, e.g. church-drive:epc-hub-backup}"
 stamp=$(date +%F)
 month=$(date +%Y-%m)
 out="$CHURCH_HOME/backups/backup-$stamp"

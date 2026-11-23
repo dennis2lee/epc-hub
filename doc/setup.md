@@ -6,7 +6,7 @@
 |---|---|---|
 | Node.js 24 이상 | `node -v` | 개발 시점에는 26 사용 |
 | Docker (Colima) | `docker info` | 로컬 Supabase용. `colima start --cpu 2 --memory 4` |
-| GitHub CLI | `gh auth status` | 저장소 `dennis2lee/intra-net` (private) |
+| GitHub CLI | `gh auth status` | 저장소 `dennis2lee/epc-hub` (public) |
 
 Supabase CLI는 devDependency로 설치되어 있어 따로 깔 필요가 없다. 반드시 npm 스크립트로 부른다. 직접 부르면 `--workdir src`를 빼먹어 루트에 `supabase/` 폴더가 새로 생긴다.
 

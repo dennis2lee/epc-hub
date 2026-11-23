@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>epc-hub 문서</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Landing page for the GitHub Pages docs site (D48). Same palette as design.html. */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --ink: #17202c; --muted: #5a6676; --line: #dde2e9;
+  --navy: #1f4170; --navy-soft: #e7eef8; --seal: #c0392b;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #0f141a; --surface: #161d26; --ink: #e6eaf0; --muted: #9aa5b4; --line: #27313d; --navy: #8db4e8; --navy-soft: #1b2a3d; --seal: #f0705f; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #0f141a; --surface: #161d26; --ink: #e6eaf0; --muted: #9aa5b4; --line: #27313d; --navy: #8db4e8; --navy-soft: #1b2a3d; --seal: #f0705f; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.65; }
+.wrap { max-width: 920px; margin: 0 auto; padding: 56px 16px 72px; }
+.eyebrow { font-size: 12px; letter-spacing: .14em; color: var(--muted); font-weight: 600; }
+h1 { font-size: clamp(28px, 5vw, 38px); margin: 8px 0 6px; }
+.lede { color: var(--muted); margin: 0 0 32px; }
+.main { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 36px; }
+a.big { display: block; text-decoration: none; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 22px 20px; transition: border-color .15s, transform .15s; }
+a.big:hover { border-color: var(--navy); transform: translateY(-2px); }
+a.big:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+a.big .tag { display: inline-block; font-size: 11.5px; font-weight: 600; color: var(--navy); background: var(--navy-soft); border-radius: 999px; padding: 2px 10px; }
+a.big h2 { font-size: 21px; margin: 12px 0 6px; }
+a.big p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+a.big .go { color: var(--navy); font-weight: 600; font-size: 14px; }
+h3 { font-size: 15px; color: var(--muted); font-weight: 600; letter-spacing: .04em; margin: 0 0 10px; }
+ul.docs { list-style: none; padding: 0; margin: 0 0 30px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+ul.docs li { border-top: 1px solid var(--line); }
+ul.docs li:first-child { border-top: 0; }
+ul.docs a { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; }
+ul.docs a:hover { background: var(--navy-soft); }
+ul.docs b { color: var(--navy); font-weight: 600; }
+ul.docs span { color: var(--muted); font-size: 14px; }
+@media (max-width: 560px) { ul.docs a { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+.foot { color: var(--muted); font-size: 13px; }
+.foot a { color: var(--navy); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">EPC-HUB · 교회 인트라넷</div>
+  <h1>epc-hub 문서</h1>
+  <p class="lede">미국 한인교회의 종이 지출청구서를 휴대폰 결재로 바꾸는 프로젝트의 문서 모음입니다. 아래 카드를 누르면 바로 열립니다.</p>
+
+  <div class="main">
+    <a class="big" href="overview.html">
+      <span class="tag">처음이라면 여기부터</span>
+      <h2>구조 보고서</h2>
+      <p>전체 구조를 네 단계 깊이(개념 → 시스템 → 모듈 → 코드)로, 역할별 사용법과 화면 예시를 함께 정리했습니다.</p>
+      <span class="go">보고서 열기 →</span>
+    </a>
+    <a class="big" href="design.html">
+      <span class="tag">기준 문서</span>
+      <h2>설계서</h2>
+      <p>업무 규칙, 상태 전이, 화면과 용어, 내부 통제, 데이터 모델, 운영 규정 초안. 설계의 기준입니다.</p>
+      <span class="go">설계서 열기 →</span>
+    </a>
+  </div>
+
+  <h3>기록과 절차서 (GitHub에서 열림)</h3>
+  <ul class="docs">
+    <li><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/decisions.md"><b>결정 기록</b><span>업무 규칙 A·U와 구현 결정 D1~D48</span></a></li>
+    <li><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/milestones.md"><b>마일스톤</b><span>M0~M4 진행 상황과 테스트 건수</span></a></li>
+    <li><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/operations.md"><b>운영 절차서</b><span>사무실 업무, 장애 대응, 비밀값 목록</span></a></li>
+    <li><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/deploy.md"><b>배포 절차</b><span>맥미니 설치·배포·백업·복원</span></a></li>
+    <li><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/device-checklist.md"><b>실기기 점검표</b><span>휴대폰에서 확인할 항목</span></a></li>
+    <li><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/kakao-trial.md"><b>카카오 시험</b><span>카카오 로그인 실기기 시험 절차</span></a></li>
+    <li><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/setup.md"><b>개발 환경</b><span>로컬 개발 준비</span></a></li>
+    <li><a href="https://github.com/dennis2lee/epc-hub/tree/main/doc/reviews"><b>검토 기록</b><span>Fable 자문과 레드팀 기록</span></a></li>
+  </ul>
+
+  <p class="foot">소스 코드: <a href="https://github.com/dennis2lee/epc-hub">github.com/dennis2lee/epc-hub</a> · 이 사이트는 저장소의 <code>doc/</code> 폴더가 바뀔 때마다 자동으로 다시 배포됩니다.</p>
+</div>
+</body>
+</html>

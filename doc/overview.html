@@ -1,0 +1,1440 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>epc-hub 구조 보고서</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Report layout: cover band, sticky table of contents on the left, body on the right.
+   Colors follow doc/design.html (navy for structure, seal red only for approval). */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --ink: #17202c;
+  --muted: #5a6676;
+  --line: #dde2e9;
+  --line-strong: #8f9aa9;
+  --navy: #1f4170;
+  --navy-soft: #e7eef8;
+  --seal: #c0392b;
+  --seal-soft: #fbecea;
+  --warn: #a8620a;
+  --warn-soft: #fbf1e2;
+  --ok: #2e7d4f;
+  --ok-soft: #e6f3eb;
+  --band: #f7f9fc;
+  --code-bg: #eef1f5;
+  --l1: #1f4170; --l2: #2f6a8f; --l3: #6a4c93; --l4: #8a5a1f;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141a; --surface: #161d26; --ink: #e6eaf0; --muted: #9aa5b4; --line: #27313d; --line-strong: #66727f;
+    --navy: #8db4e8; --navy-soft: #1b2a3d; --seal: #f0705f; --seal-soft: #3a1e1b; --warn: #e3a24a; --warn-soft: #36291a;
+    --ok: #6cc595; --ok-soft: #17301f; --band: #131a22; --code-bg: #0c1117;
+    --l1: #8db4e8; --l2: #7cc0e0; --l3: #b89be0; --l4: #e0b070;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141a; --surface: #161d26; --ink: #e6eaf0; --muted: #9aa5b4; --line: #27313d; --line-strong: #66727f;
+  --navy: #8db4e8; --navy-soft: #1b2a3d; --seal: #f0705f; --seal-soft: #3a1e1b; --warn: #e3a24a; --warn-soft: #36291a;
+  --ok: #6cc595; --ok-soft: #17301f; --band: #131a22; --code-bg: #0c1117;
+  --l1: #8db4e8; --l2: #7cc0e0; --l3: #b89be0; --l4: #e0b070;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.7; -webkit-text-size-adjust: 100%; }
+a { color: var(--navy); }
+a:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+code { font-family: var(--font-mono); font-size: .86em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; word-break: break-word; }
+
+/* Cover */
+.cover { background: var(--surface); border-bottom: 1px solid var(--line); }
+.cover-in { max-width: 1160px; margin: 0 auto; padding: 48px max(16px, env(safe-area-inset-left, 0px)) 36px; }
+.eyebrow { font-size: 12px; letter-spacing: .14em; color: var(--muted); font-weight: 600; }
+.cover h1 { font-size: clamp(28px, 4.4vw, 40px); line-height: 1.25; margin: 10px 0 8px; letter-spacing: -.01em; }
+.cover .lede { color: var(--muted); max-width: 720px; margin: 0 0 24px; font-size: 16px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+.meta b { color: var(--ink); font-weight: 600; }
+.kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.kpi { background: var(--band); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.kpi .n { font-size: 24px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi .l { font-size: 12px; color: var(--muted); }
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Page grid */
+.wrap { max-width: 1160px; margin: 0 auto; padding: 36px max(16px, env(safe-area-inset-left, 0px)) 80px; display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 48px; }
+.toc { position: sticky; top: 20px; align-self: start; font-size: 13.5px; max-height: calc(100vh - 40px); overflow-y: auto; }
+.toc .label { font-size: 11.5px; letter-spacing: .1em; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.toc a { display: flex; gap: 8px; align-items: center; padding: 5px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+.toc a:hover { background: var(--navy-soft); color: var(--ink); }
+.toc .sub a { padding-left: 26px; font-size: 12.5px; }
+main { min-width: 0; max-width: 860px; }
+@media (max-width: 960px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .toc { position: static; max-height: none; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .toc ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .toc .sub { display: none; }
+}
+
+/* Sections */
+section.part { margin-bottom: 64px; scroll-margin-top: 16px; }
+.part-head { display: flex; align-items: flex-start; gap: 14px; border-bottom: 2px solid var(--ink); padding-bottom: 12px; margin-bottom: 22px; }
+.part-head .num { font-family: var(--font-mono); font-size: 13px; color: var(--muted); padding-top: 8px; min-width: 22px; }
+.part-head h2 { font-size: 24px; margin: 0; line-height: 1.35; }
+.part-head .q { color: var(--muted); font-size: 14px; margin-top: 2px; }
+h3 { font-size: 17.5px; margin: 34px 0 10px; scroll-margin-top: 16px; }
+h4 { font-size: 15px; margin: 20px 0 6px; }
+p { margin: 8px 0 12px; }
+ul, ol { padding-left: 22px; margin: 8px 0 14px; }
+li { margin: 3px 0; }
+
+/* Level badges */
+.lv { display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; color: #fff; flex-shrink: 0; }
+.lv.l1 { background: var(--l1); } .lv.l2 { background: var(--l2); } .lv.l3 { background: var(--l3); } .lv.l4 { background: var(--l4); }
+.lv.u { background: var(--seal); }
+:root[data-theme="dark"] .lv, :root:not([data-theme="light"]) .lv { color: #fff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lv { color: #0f141a; } }
+:root[data-theme="dark"] .lv { color: #0f141a; }
+
+/* Ladder (reading guide) */
+.ladder { display: grid; gap: 8px; margin: 14px 0 8px; }
+.rung { display: grid; grid-template-columns: 74px minmax(0, 1fr) minmax(0, 1.3fr); gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.rung > div { padding: 12px 14px; }
+.rung .tag { color: #fff; font-weight: 700; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: var(--font-mono); font-size: 18px; line-height: 1.1; }
+.rung .tag small { font-family: var(--font-body); font-size: 10.5px; font-weight: 500; opacity: .9; margin-top: 3px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .rung .tag { color: #0f141a; } }
+:root[data-theme="dark"] .rung .tag { color: #0f141a; }
+.rung .what b { display: block; font-size: 15px; }
+.rung .what span { color: var(--muted); font-size: 13px; }
+.rung .detail { font-size: 13px; color: var(--muted); border-left: 1px dashed var(--line); }
+.rung:nth-child(1) .tag { background: var(--l1); } .rung:nth-child(2) .tag { background: var(--l2); }
+.rung:nth-child(3) .tag { background: var(--l3); } .rung:nth-child(4) .tag { background: var(--l4); }
+.rung:nth-child(2) { margin-left: 18px; } .rung:nth-child(3) { margin-left: 36px; } .rung:nth-child(4) { margin-left: 54px; }
+@media (max-width: 640px) {
+  .rung { grid-template-columns: 60px minmax(0, 1fr); }
+  .rung .detail { grid-column: 1 / -1; border-left: 0; border-top: 1px dashed var(--line); }
+  .rung:nth-child(n) { margin-left: 0; }
+}
+
+/* Tables */
+.tw { overflow-x: auto; margin: 12px 0 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { background: var(--band); font-weight: 600; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.nw { white-space: nowrap; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Figures */
+figure { margin: 18px 0 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 16px 12px; }
+figure svg { display: block; width: 100%; height: auto; }
+figcaption { font-size: 12.5px; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+figcaption b { color: var(--ink); font-weight: 600; }
+.scroll-x { overflow-x: auto; }
+.scroll-x svg { min-width: 640px; }
+
+/* SVG styles */
+.s-box { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1.2; }
+.s-navy { fill: var(--navy-soft); stroke: var(--navy); stroke-width: 1.3; }
+.s-seal { fill: var(--seal-soft); stroke: var(--seal); stroke-width: 1.3; }
+.s-warn { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.3; }
+.s-ok { fill: var(--ok-soft); stroke: var(--ok); stroke-width: 1.3; }
+.s-band { fill: var(--band); stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 5 4; }
+.s-lane { fill: var(--band); stroke: none; }
+.s-lane2 { fill: var(--surface); stroke: none; }
+.s-t { fill: var(--ink); font-family: var(--font-body); font-size: 13px; }
+.s-b { font-weight: 600; }
+.s-s { font-size: 11.5px; }
+.s-m { fill: var(--muted); font-family: var(--font-body); font-size: 11px; }
+.s-mono { font-family: var(--font-mono); font-size: 10.5px; fill: var(--muted); }
+.s-ar { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+.s-ar-seal { stroke: var(--seal); stroke-width: 1.4; fill: none; }
+.s-ar-navy { stroke: var(--navy); stroke-width: 1.6; fill: none; }
+.s-dash { stroke-dasharray: 4 3; }
+.s-head { fill: var(--muted); }
+.s-head-seal { fill: var(--seal); }
+.s-head-navy { fill: var(--navy); }
+.s-grid { stroke: var(--line); stroke-width: 1; }
+.s-title { fill: var(--muted); font-family: var(--font-body); font-size: 11.5px; font-weight: 600; letter-spacing: .06em; }
+
+/* Callouts and cards */
+.callout { border-left: 3px solid var(--navy); background: var(--navy-soft); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; font-size: 14px; }
+.callout.seal { border-color: var(--seal); background: var(--seal-soft); }
+.callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+.callout b:first-child { margin-right: 4px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 12px 0 18px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.card h4 { margin: 0 0 6px; font-size: 14.5px; display: flex; gap: 8px; align-items: center; }
+.card ul { margin: 0; padding-left: 18px; font-size: 13.5px; }
+.card p { margin: 0; font-size: 13.5px; color: var(--muted); }
+.card .ico { width: 26px; height: 26px; border-radius: 7px; background: var(--navy-soft); color: var(--navy); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+
+/* Before/after */
+.vs { display: grid; grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr); gap: 0; align-items: stretch; margin: 12px 0 18px; }
+.vs .side { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.vs .side.after { border-color: var(--navy); box-shadow: 0 0 0 1px var(--navy) inset; }
+.vs .mid { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 20px; }
+.vs h4 { margin: 0 0 6px; }
+.vs ul { margin: 0; padding-left: 18px; font-size: 13.5px; }
+@media (max-width: 640px) { .vs { grid-template-columns: minmax(0, 1fr); } .vs .mid { transform: rotate(90deg); height: 30px; } }
+
+/* Flow chain (HTML diagrams) */
+.flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; margin: 12px 0 6px; }
+.flow .st { flex: 1 1 120px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 9px; padding: 9px 11px; font-size: 13px; min-width: 112px; position: relative; }
+.flow .st b { display: block; font-size: 13.5px; }
+.flow .st span { color: var(--muted); font-size: 12px; }
+.flow .st .k { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+.flow .st.navy { background: var(--navy-soft); border-color: var(--navy); }
+.flow .st.seal { background: var(--seal-soft); border-color: var(--seal); }
+.flow .st.ok { background: var(--ok-soft); border-color: var(--ok); }
+.flow .st.warn { background: var(--warn-soft); border-color: var(--warn); }
+.flow .ar { display: flex; align-items: center; color: var(--muted); font-size: 16px; flex: 0 0 auto; }
+.flow-note { font-size: 12.5px; color: var(--muted); margin: 0 0 18px; }
+
+/* Layer stack */
+.layers { display: grid; gap: 0; margin: 14px 0 6px; }
+.layer { display: grid; grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr); border: 1px solid var(--line); border-top: 0; background: var(--surface); }
+.layer:first-child { border-top: 1px solid var(--line); border-radius: 10px 10px 0 0; }
+.layer:last-child { border-radius: 0 0 10px 10px; }
+.layer > div { padding: 10px 12px; font-size: 13.5px; }
+.layer .n { background: var(--l3); color: #fff; font-family: var(--font-mono); font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .layer .n { color: #0f141a; } }
+:root[data-theme="dark"] .layer .n { color: #0f141a; }
+.layer .what b { display: block; }
+.layer .what code { font-size: 11.5px; }
+.layer .rule { color: var(--muted); font-size: 12.5px; border-left: 1px dashed var(--line); }
+.layer.db .n { background: var(--seal); }
+.layer-arrow { text-align: center; color: var(--muted); font-size: 12px; margin: 2px 0; }
+@media (max-width: 640px) { .layer { grid-template-columns: 30px minmax(0, 1fr); } .layer .rule { grid-column: 2; border-left: 0; border-top: 1px dashed var(--line); } }
+
+/* Phone mockups */
+.phones { display: flex; flex-wrap: wrap; gap: 22px; justify-content: center; margin: 8px 0 4px; }
+.phone { width: 270px; border-radius: 30px; border: 9px solid #1b2230; background: #f6f7f9; box-shadow: 0 10px 30px rgba(0,0,0,.15); overflow: hidden; color: #17202c; }
+.phone .bar { height: 26px; display: flex; justify-content: center; align-items: center; background: #f6f7f9; }
+.phone .bar i { width: 70px; height: 6px; border-radius: 4px; background: #1b2230; display: block; }
+.phone .scr { padding: 8px 12px 16px; font-size: 12px; line-height: 1.5; min-height: 440px; }
+.phone .hdr { font-weight: 700; font-size: 13px; color: #1f4170; padding: 4px 0 8px; border-bottom: 1px solid #dde2e9; margin-bottom: 8px; }
+.phone .en { color: #8a94a3; font-size: 10px; margin-left: 3px; }
+.phone .pc { background: #fff; border: 1px solid #dde2e9; border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+.phone .pc.hl { border-color: #1f4170; box-shadow: 0 0 0 1px #1f4170 inset; }
+.phone .pc h5 { margin: 0 0 4px; font-size: 12px; }
+.phone .row { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-top: 1px solid #eef1f5; }
+.phone .row:first-of-type { border-top: 0; }
+.phone .mut { color: #6a7584; font-size: 10.5px; }
+.phone .pill { display: inline-block; font-size: 9.5px; padding: 1px 6px; border-radius: 999px; background: #e7eef8; color: #1f4170; white-space: nowrap; }
+.phone .pill.r { background: #fbecea; color: #c0392b; }
+.phone .btn { display: block; text-align: center; border-radius: 9px; padding: 8px; font-weight: 600; font-size: 12px; margin: 6px 0; }
+.phone .btn.main { background: #1f4170; color: #fff; }
+.phone .btn.ghost { border: 1px solid #8f9aa9; color: #17202c; background: #fff; }
+.phone .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.phone .kv { display: grid; grid-template-columns: 54px 1fr; gap: 2px 6px; font-size: 11px; }
+.phone .kv dt { color: #6a7584; } .phone .kv dd { margin: 0; }
+.phone .amt { font-size: 20px; font-weight: 700; margin: 2px 0 4px; }
+.phone .stamp { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #8f9aa9; border-radius: 6px; overflow: hidden; text-align: center; font-size: 10px; margin: 6px 0; }
+.phone .stamp div { border-left: 1px solid #dde2e9; padding: 3px 2px; }
+.phone .stamp div:first-child { border-left: 0; }
+.phone .stamp .h { background: #f2f4f7; font-weight: 600; }
+.phone .stamp .seal { color: #c0392b; font-weight: 700; }
+.phone .thumbs { display: flex; gap: 6px; margin: 4px 0; }
+.phone .thumbs span { width: 46px; height: 58px; border-radius: 6px; background: repeating-linear-gradient(135deg, #e3e7ee 0 6px, #eef1f5 6px 12px); border: 1px solid #dde2e9; }
+.phone-cap { text-align: center; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+
+/* Journey cards */
+.journey { display: grid; gap: 12px; margin: 12px 0 18px; }
+.jr { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.jr .jh { display: flex; gap: 10px; align-items: center; padding: 10px 14px; background: var(--band); border-bottom: 1px solid var(--line); }
+.jr .jh b { font-size: 15px; }
+.jr .jh span { color: var(--muted); font-size: 12.5px; }
+.jr ol { margin: 0; padding: 10px 14px 12px 34px; font-size: 13.5px; }
+.jr ol li::marker { color: var(--muted); font-family: var(--font-mono); font-size: 12px; }
+.who { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #fff; background: var(--navy); flex-shrink: 0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .who { color: #0f141a; } }
+:root[data-theme="dark"] .who { color: #0f141a; }
+.who.s { background: var(--seal); } .who.w { background: var(--warn); } .who.g { background: var(--ok); } .who.p { background: var(--l3); } .who.m { background: var(--muted); }
+
+/* Repo tree */
+.tree { font-family: var(--font-mono); font-size: 12.5px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; line-height: 1.85; }
+.tree .r { display: grid; grid-template-columns: 250px 120px minmax(0, 1fr); gap: 10px; align-items: center; min-width: 620px; }
+.tree .p { white-space: pre; }
+.tree .bar { height: 8px; border-radius: 4px; background: var(--navy); opacity: .75; }
+.tree .bar.db { background: var(--seal); } .tree .bar.ops { background: var(--l4); } .tree .bar.doc { background: var(--muted); }
+.tree .d { font-family: var(--font-body); color: var(--muted); font-size: 12.5px; }
+.tree .lines { font-size: 11px; color: var(--muted); }
+
+/* Timeline */
+.day { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 0; margin: 12px 0 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.day > div { padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.day > div:nth-last-child(-n+2) { border-bottom: 0; }
+.day .tm { font-family: var(--font-mono); font-size: 13px; font-weight: 600; background: var(--band); color: var(--navy); }
+
+/* Pyramid */
+.pyr { display: grid; gap: 4px; justify-items: center; margin: 14px 0 6px; }
+.pyr div { text-align: center; border-radius: 6px; padding: 8px 10px; font-size: 13px; color: #fff; }
+.pyr div b { font-size: 16px; font-variant-numeric: tabular-nums; margin-right: 6px; }
+.pyr .e { width: 40%; background: var(--l1); } .pyr .i { width: 58%; background: var(--l2); }
+.pyr .u { width: 76%; background: var(--l3); } .pyr .d { width: 94%; background: var(--seal); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pyr div { color: #0f141a; } }
+:root[data-theme="dark"] .pyr div { color: #0f141a; }
+@media (max-width: 520px) { .pyr .e, .pyr .i, .pyr .u, .pyr .d { width: 100%; } }
+
+/* Milestones */
+.ms { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 12px 0 6px; }
+.ms div { border-radius: 8px; padding: 10px; font-size: 12.5px; background: var(--ok-soft); border: 1px solid var(--ok); }
+.ms div b { display: block; font-family: var(--font-mono); font-size: 14px; }
+.ms div.now { background: var(--warn-soft); border-color: var(--warn); }
+@media (max-width: 640px) { .ms { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.check { list-style: none; padding-left: 0; }
+.check li { padding-left: 24px; position: relative; }
+.check li::before { content: ""; position: absolute; left: 2px; top: 7px; width: 12px; height: 12px; border: 1.5px solid var(--line-strong); border-radius: 3px; }
+.check li.done::before { background: var(--ok); border-color: var(--ok); }
+
+.foot { color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 16px; margin-top: 40px; }
+
+@media print {
+  body { background: #fff; }
+  .toc { display: none; }
+  .wrap { grid-template-columns: 1fr; }
+  section.part { break-inside: auto; }
+  figure, .tw, .phone, .jr, .rung { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="cover-in">
+    <div class="eyebrow">EPC-HUB · 구조 보고서 · 지출청구 전자결재</div>
+    <h1>epc-hub 구조 보고서</h1>
+    <p class="lede">교회 인트라넷 epc-hub는 종이 지출청구서를 휴대폰 결재로 바꾸는 프로젝트입니다. 이 프로젝트가 무엇이고, 어떻게 쓰이며, 어떻게 만들어져 있는지를 네 단계 깊이로 정리했습니다. 위에서부터 읽으면 전체 그림에서 코드 한 줄까지 내려갑니다.</p>
+    <div class="meta">
+      <span>작성 <b>2026-11-23</b></span>
+      <span>기준 <b>main 브랜치, 2026-11-23</b></span>
+      <span>단계 <b>M4 시범 준비 (진행 중)</b></span>
+      <span>운영 서버 <b>전용 맥미니 (설치 전)</b></span>
+      <span>기준 설계서 <a href="design.html">design.html</a></span>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="n">9 + 9</div><div class="l">화면 · 서버 라우트</div></div>
+      <div class="kpi"><div class="n">20</div><div class="l">DB 테이블</div></div>
+      <div class="kpi"><div class="n">101</div><div class="l">DB 함수 (공개 60 · 내부 41)</div></div>
+      <div class="kpi"><div class="n">205</div><div class="l">자동 테스트 (4종)</div></div>
+      <div class="kpi"><div class="n">59</div><div class="l">기록된 결정 (A·U·D)</div></div>
+      <div class="kpi"><div class="n">5</div><div class="l">레드팀 검토 (M1~M4·운영)</div></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<nav class="toc" aria-label="목차">
+  <div class="label">목차</div>
+  <ol>
+    <li><a href="#guide"><span class="lv l1" style="background:var(--muted)">0</span>읽는 법</a></li>
+    <li><a href="#l1"><span class="lv l1">L1</span>한눈에 보기</a></li>
+    <li class="sub"><a href="#l1-who">누가 쓰나</a></li>
+    <li class="sub"><a href="#l1-flow">결재 흐름</a></li>
+    <li class="sub"><a href="#l1-rules">지키는 원칙</a></li>
+    <li class="sub"><a href="#l1-board">당회가 정할 것</a></li>
+    <li><a href="#user"><span class="lv u">U</span>사용자 관점</a></li>
+    <li class="sub"><a href="#user-start">처음 시작</a></li>
+    <li class="sub"><a href="#user-screens">화면 예시</a></li>
+    <li class="sub"><a href="#user-roles">역할별 사용법</a></li>
+    <li class="sub"><a href="#user-map">화면 지도</a></li>
+    <li class="sub"><a href="#user-help">곤란할 때</a></li>
+    <li><a href="#l2"><span class="lv l2">L2</span>시스템 구성</a></li>
+    <li class="sub"><a href="#l2-arch">구성도</a></li>
+    <li class="sub"><a href="#l2-net">외부 공개 범위</a></li>
+    <li class="sub"><a href="#l2-day">하루 운영</a></li>
+    <li><a href="#l3"><span class="lv l3">L3</span>모듈과 데이터</a></li>
+    <li class="sub"><a href="#l3-repo">저장소 구성</a></li>
+    <li class="sub"><a href="#l3-layers">요청 처리 계층</a></li>
+    <li class="sub"><a href="#l3-data">데이터 모델</a></li>
+    <li class="sub"><a href="#l3-read">누가 무엇을 보나</a></li>
+    <li class="sub"><a href="#l3-state">청구 상태</a></li>
+    <li class="sub"><a href="#l3-notify">알림</a></li>
+    <li><a href="#l4"><span class="lv l4">L4</span>코드와 함수</a></li>
+    <li class="sub"><a href="#l4-fn">DB 함수 목록</a></li>
+    <li class="sub"><a href="#l4-submit">제출 함수</a></li>
+    <li class="sub"><a href="#l4-anatomy">승인 함수 해부</a></li>
+    <li class="sub"><a href="#l4-sec">보안 장치</a></li>
+    <li class="sub"><a href="#l4-test">테스트</a></li>
+    <li class="sub"><a href="#l4-ops">배포·백업 스크립트</a></li>
+    <li><a href="#status"><span class="lv l1" style="background:var(--ok)">S</span>현재 상태</a></li>
+    <li><a href="#appendix"><span class="lv l1" style="background:var(--muted)">A</span>부록</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ============================== 0. Reading guide ============================== -->
+<section class="part" id="guide">
+  <div class="part-head"><div class="num">00</div><div><h2>읽는 법 · 네 단계 깊이</h2><div class="q">필요한 깊이까지만 읽으면 됩니다.</div></div></div>
+
+  <div class="ladder">
+    <div class="rung">
+      <div class="tag">L1<small>개념</small></div>
+      <div class="what"><b>한눈에 보기</b><span>무엇을, 누구를 위해, 왜</span></div>
+      <div class="detail">당회·재정부·사무실이 읽을 수준. 역할, 결재 흐름, 원칙, 당회가 정할 것. 기술 용어는 최소로.</div>
+    </div>
+    <div class="rung">
+      <div class="tag">L2<small>시스템</small></div>
+      <div class="what"><b>시스템 구성</b><span>어디서 무엇이 돌아가나</span></div>
+      <div class="detail">맥미니 · Cloudflare · Supabase · 메일 · 카카오 · 백업. 운영 담당이 알아야 할 구성도.</div>
+    </div>
+    <div class="rung">
+      <div class="tag">L3<small>모듈</small></div>
+      <div class="what"><b>모듈과 데이터</b><span>안이 어떻게 나뉘나</span></div>
+      <div class="detail">폴더 구조, 요청 처리 계층, 테이블 20개, 청구 상태 8가지, 알림 흐름.</div>
+    </div>
+    <div class="rung">
+      <div class="tag">L4<small>코드</small></div>
+      <div class="what"><b>코드와 함수</b><span>실제로 어떻게 동작하나</span></div>
+      <div class="detail">DB 함수 목록, 승인 함수 한 줄씩, 보안 장치와 위치, 테스트, 배포·백업 스크립트.</div>
+    </div>
+  </div>
+  <p class="flow-note">사용자 관점(<span class="lv u">U</span>)은 L1 바로 뒤에 둡니다. 교인이 실제로 보는 화면과 순서를 먼저 알면 L2 이하가 쉽게 읽힙니다.</p>
+
+  <div class="tw"><table>
+    <thead><tr><th>읽는 사람</th><th>권하는 범위</th><th>얻는 것</th></tr></thead>
+    <tbody>
+      <tr><td>당회 · 재정부</td><td>L1, 사용자 관점, 현재 상태</td><td>무엇이 바뀌고 무엇을 확인해 줘야 하는지</td></tr>
+      <tr><td>사무실 (관리자)</td><td>L1, 사용자 관점, L2 하루 운영</td><td>교인 초대·확인 방법, 막혔을 때 할 일</td></tr>
+      <tr><td>기술 담당 (운영)</td><td>L2, L3, L4 배포·백업</td><td>서버 구성, 장애·복원 절차의 위치</td></tr>
+      <tr><td>개발자 (유지보수)</td><td>전체, 특히 L3 · L4</td><td>코드 위치, 규칙이 강제되는 곳, 테스트</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================== L1 ============================== -->
+<section class="part" id="l1">
+  <div class="part-head"><div class="num"><span class="lv l1">L1</span></div><div><h2>한눈에 보기</h2><div class="q">무엇을, 누구를 위해, 왜 만드나</div></div></div>
+
+  <div class="vs">
+    <div class="side">
+      <h4>지금 · 종이 청구서</h4>
+      <ul>
+        <li>서명 받으러 주일마다 사람을 찾아다님</li>
+        <li>누구 차례에서 멈췄는지 아무도 모름</li>
+        <li>영수증 분실, 같은 영수증 두 번 청구 위험</li>
+        <li>감사 때 종이 더미를 뒤짐</li>
+      </ul>
+    </div>
+    <div class="mid">→</div>
+    <div class="side after">
+      <h4>바뀐 뒤 · 휴대폰 결재</h4>
+      <ul>
+        <li>휴대폰으로 올리고, 메일을 받은 결재자가 승인</li>
+        <li>화면에 "지금 누구 차례"가 늘 보임</li>
+        <li>제출된 영수증 사진은 지워지지 않고, 중복은 경고</li>
+        <li>모든 승인·지급이 기록되고 인쇄본·CSV로 나옴</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="tw"><table>
+    <thead><tr><th>항목</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">목적</td><td>지출청구 → 부서 결재 → 재정부 확인 → 수표 지급을 휴대폰 웹으로</td></tr>
+      <tr><td class="nw">대상</td><td>미국 한인교회. 금액은 USD, 휴대폰은 대부분 +1, 지급은 수표만</td></tr>
+      <tr><td class="nw">언어</td><td>쉬운 한국어 본문 + 핵심 버튼·상태에 작은 영어 병기 (2세대·EM 배려)</td></tr>
+      <tr><td class="nw">로그인</td><td>이메일 6자리 코드, 또는 카카오 (비즈 앱 없이, 실기기 시험 전)</td></tr>
+      <tr><td class="nw">알림</td><td>이메일이 기본. 메일 제목에 작성자·금액·목적이 보인다. 카톡·문자 공유는 보조</td></tr>
+      <tr><td class="nw">운영 위치</td><td>개발 담당이 제공하는 전용 맥미니 한 대에 둘 계획 (개인 소유라 당회 확인 필요, 아직 설치 전). 월 비용은 거의 없음. 백업은 교회 Google Drive</td></tr>
+      <tr><td class="nw">서버가 멈추면</td><td>시스템에서 서류 확인이 끝나지 않은 청구에는 수표를 쓰지 않는다. 하루를 넘기면 종이로 받아 두고, 복구 뒤 다시 올려 다시 승인받는다 (D35, 당회 확인)</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="l1-who">누가 쓰나 · 역할 7가지</h3>
+  <div class="tw"><table>
+    <thead><tr><th>역할</th><th>하는 일</th><th>할 수 없는 일</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><span class="who" style="width:22px;height:22px;font-size:11px">작</span> 작성자</td><td>청구서 작성, 영수증 첨부, 제출, 보완 후 다시 제출, 취소</td><td>본인 청구 결재·지급</td></tr>
+      <tr><td class="nw"><span class="who w" style="width:22px;height:22px;font-size:11px">부</span> 부장</td><td>부서 청구 1차 승인 또는 보완 요청</td><td>본인 청구 결재 (담당 장로 1인 결재로 바뀜)</td></tr>
+      <tr><td class="nw"><span class="who s" style="width:22px;height:22px;font-size:11px">장</span> 담당 장로</td><td>부서 청구 최종 승인 또는 보완 요청</td><td>본인 청구 결재 (부장 1인 결재로 바뀜)</td></tr>
+      <tr><td class="nw"><span class="who g" style="width:22px;height:22px;font-size:11px">재</span> 재정부원</td><td>서류 확인, 서류 보완 요청, 수표 기록·무효, 은행 결제 확인, 월별 CSV</td><td>본인 청구, 그 회차에 본인이 결재한 청구 처리</td></tr>
+      <tr><td class="nw"><span class="who g" style="width:22px;height:22px;font-size:11px">재</span> 재정 담당 장로</td><td>처리할 재정부원이 없을 때 재정 처리 대신</td><td>위와 같음</td></tr>
+      <tr><td class="nw"><span class="who p" style="width:22px;height:22px;font-size:11px">관</span> 관리자 (사무실)</td><td>교인 등록·초대, 대면 확인, 부서·직분, 막힌 건 연락, 권한 부여</td><td>자기 자신을 대면 확인하거나 권한 부여</td></tr>
+      <tr><td class="nw"><span class="who m" style="width:22px;height:22px;font-size:11px">감</span> 감사위원</td><td>재정 화면과 기록 읽기 (뺀 영수증 포함)</td><td>기록·수정 일체. 관리자·재정과 겸직 불가</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="l1-flow">결재 흐름</h3>
+  <figure>
+    <div class="scroll-x">
+    <svg viewBox="0 0 820 240" role="img" aria-label="작성자에서 부장, 담당 장로, 재정부 서류 확인, 수표 발행, 결제 확인으로 가는 결재 흐름">
+      <defs>
+        <marker id="ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="s-head" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="ah1s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="s-head-seal" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+      <!-- phase brackets -->
+      <path class="s-ar" d="M148,34 V26 H392 V34"/>
+      <text class="s-title" x="270" y="18" text-anchor="middle">부서 결재 (서명)</text>
+      <path class="s-ar" d="M416,34 V26 H812 V34"/>
+      <text class="s-title" x="614" y="18" text-anchor="middle">재정 처리 (서명 아님)</text>
+      <!-- nodes -->
+      <rect class="s-box" x="8" y="44" width="116" height="66" rx="9"/>
+      <text class="s-t s-b" x="66" y="72" text-anchor="middle">작성자</text>
+      <text class="s-m" x="66" y="92" text-anchor="middle">청구서·영수증 제출</text>
+
+      <rect class="s-navy" x="148" y="44" width="116" height="66" rx="9"/>
+      <text class="s-t s-b" x="206" y="72" text-anchor="middle">부장</text>
+      <text class="s-m" x="206" y="92" text-anchor="middle">1차 승인</text>
+
+      <rect class="s-navy" x="276" y="44" width="116" height="66" rx="9"/>
+      <text class="s-t s-b" x="334" y="72" text-anchor="middle">담당 장로</text>
+      <text class="s-m" x="334" y="92" text-anchor="middle">최종 승인</text>
+
+      <rect class="s-ok" x="416" y="44" width="116" height="66" rx="9"/>
+      <text class="s-t s-b" x="474" y="72" text-anchor="middle">재정부</text>
+      <text class="s-m" x="474" y="92" text-anchor="middle">서류 확인</text>
+
+      <rect class="s-ok" x="556" y="44" width="116" height="66" rx="9"/>
+      <text class="s-t s-b" x="614" y="72" text-anchor="middle">재정부</text>
+      <text class="s-m" x="614" y="92" text-anchor="middle">수표 발행 기록</text>
+
+      <rect class="s-box" x="696" y="44" width="116" height="66" rx="9"/>
+      <text class="s-t s-b" x="754" y="72" text-anchor="middle">재정부</text>
+      <text class="s-m" x="754" y="92" text-anchor="middle">은행 결제 확인</text>
+      <!-- forward arrows -->
+      <path class="s-ar" d="M124,77 H146" marker-end="url(#ah1)"/>
+      <path class="s-ar" d="M264,77 H274" marker-end="url(#ah1)"/>
+      <path class="s-ar" d="M392,77 H414" marker-end="url(#ah1)"/>
+      <path class="s-ar" d="M532,77 H554" marker-end="url(#ah1)"/>
+      <path class="s-ar" d="M672,77 H694" marker-end="url(#ah1)"/>
+      <!-- return bus -->
+      <path class="s-ar-seal" d="M206,110 V160"/>
+      <path class="s-ar-seal" d="M334,110 V160"/>
+      <path class="s-ar-seal" d="M474,110 V160"/>
+      <path class="s-ar-seal" d="M474,160 H66 V112" marker-end="url(#ah1s)"/>
+      <text class="s-t s-s" x="270" y="182" text-anchor="middle" style="fill:var(--seal)">보완 요청 · 서류 보완 요청 (사유 필수)</text>
+      <text class="s-m" x="270" y="200" text-anchor="middle">작성자가 고쳐서 다시 제출하면 부장부터 다시 결재 (A3, A8)</text>
+      <!-- single approver note -->
+      <rect class="s-band" x="560" y="140" width="252" height="80" rx="8"/>
+      <text class="s-t s-s s-b" x="574" y="162">예외</text>
+      <text class="s-m" x="574" y="182">부장 본인 청구 → 담당 장로 1인 결재</text>
+      <text class="s-m" x="574" y="199">장로 본인 청구 → 부장 1인 결재</text>
+      <text class="s-m" x="574" y="216">둘 다 '결재자 1인'으로 표시 (A6, A7)</text>
+    </svg>
+    </div>
+    <figcaption><b>그림 1.</b> 결재는 부서의 부장과 담당 장로 두 사람이 한다. 금액에 따른 추가 결재는 없다(A2). 재정부는 서명하지 않고 서류를 확인한 뒤 수표를 기록한다(A1). 여러 청구를 수표 한 장으로 묶을 수 있다.</figcaption>
+  </figure>
+
+  <h3 id="l1-rules">지키는 원칙</h3>
+  <div class="cards">
+    <div class="card"><h4><span class="ico">1</span>한 사람이 다 하지 못한다</h4><ul><li>작성자 ≠ 결재자 ≠ 지급자</li><li>수표 기록자는 결제 확인을 하지 않는다 (대체자 없을 때만, 표시)</li><li>관리자는 자기 권한을 못 만진다</li></ul></div>
+    <div class="card"><h4><span class="ico">2</span>규칙은 서버가 지킨다</h4><ul><li>상태는 정해진 데이터베이스 규칙으로만 바뀜</li><li>화면이 실수해도 서버가 거부</li><li>오래된 화면의 버튼은 "그 사이 바뀜"으로 거부</li></ul></div>
+    <div class="card"><h4><span class="ico">3</span>증거는 지우지 않는다</h4><ul><li>승인 순간의 내용을 지문처럼 저장</li><li>제출된 영수증 파일은 남김</li><li>감사 기록은 추가만 가능</li></ul></div>
+    <div class="card"><h4><span class="ico">4</span>멈춘 결재를 찾아낸다</h4><ul><li>메일이 실패해도 결재는 진행</li><li>결재 8일째·재정 10일째부터 막힌 건 목록</li><li>매일 아침 점검 메일</li></ul></div>
+    <div class="card"><h4><span class="ico">5</span>민감 정보를 받지 않는다</h4><ul><li>계좌번호·사회보장번호·세무 서류·신분증 없음</li><li>수표만 쓰므로 영문 이름과 주소면 충분</li></ul></div>
+    <div class="card"><h4><span class="ico">6</span>데이터 위치를 교회가 안다</h4><ul><li>전용 맥미니 한 대에 저장</li><li>매일 암호화해 교회 Google Drive로</li><li>복호화 키 사본을 두 사람이 따로 보관</li></ul></div>
+  </div>
+
+  <h4>이번 버전에서 하지 않는 것</h4>
+  <div class="tw"><table>
+    <thead><tr><th>하지 않음</th><th>이유</th></tr></thead>
+    <tbody>
+      <tr><td>교회 카드 결제 내역</td><td>현재 버전 범위 밖 (U3)</td></tr>
+      <tr><td>Zelle · ACH · 현금 지급</td><td>수표만 쓴다 (U2). 계좌 정보를 받지 않기 위해</td></tr>
+      <tr><td>카카오 알림톡 · 한국 문자</td><td>미국 번호로 보낼 근거가 없음</td></tr>
+      <tr><td>강사 사례비 (W-9 · 1099)</td><td>세무 서류가 필요해 범위 밖</td></tr>
+      <tr><td>승인 되돌리기</td><td>승인은 되돌릴 수 없다. 대신 확인 창에서 금액·수취인·영수증 장수를 한 번 더 보여 준다</td></tr>
+      <tr><td>회차 간 "달라진 점" 비교</td><td>보강 단계. 지금은 이전 회차의 보완 요청 사유를 보여 준다</td></tr>
+      <tr><td>대리결재 · 월 마감 잠금 · PDF 묶음</td><td>당회 결정 뒤 보강 단계</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="l1-board">시작 전에 당회가 정할 것</h3>
+  <div class="tw"><table>
+    <thead><tr><th>정할 것</th><th>왜 필요한가</th><th>근거</th></tr></thead>
+    <tbody>
+      <tr><td>「전자결재 운영 규정」 결의</td><td>버튼 승인을 종이 서명과 같은 공식 승인으로 채택, 계정 등록 확인서, 열람 범위, 개발 담당의 권한 한계</td><td>설계서 10장</td></tr>
+      <tr><td>운영 기기와 데이터 위치</td><td>교회 기록을 개인 소유 맥미니에 두는 것, 장애 허용 시간, FileVault 사용 여부</td><td>D41</td></tr>
+      <tr><td>장애 중 지급 원칙</td><td>장애 중 수표 금지, 종이 전환 날짜</td><td>D35</td></tr>
+      <tr><td>재정 처리 대체 규칙</td><td>재정부원 본인·결재자 청구를 재정 담당 장로가 처리하는 범위 (A9를 넓힌 해석)</td><td>D13</td></tr>
+      <tr><td>수표 무효·결제 기록 예외</td><td>대체자가 없을 때 발행자 본인 무효·결제 기록 허용</td><td>D20, D21</td></tr>
+      <tr><td>두 번째 관리자, 감사위원</td><td>시범 시작 30일 안에 지명</td><td>D30</td></tr>
+      <tr><td>백업</td><td>보관 장소(교회 Google Drive), 키 보관자, 7년 보관</td><td>D44</td></tr>
+      <tr><td>교회 시간대</td><td>날짜 판정 기준 (기본 미국 서부)</td><td>D7</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================== User perspective ============================== -->
+<section class="part" id="user">
+  <div class="part-head"><div class="num"><span class="lv u">U</span></div><div><h2>사용자 관점 · 어떻게 쓰나</h2><div class="q">교인이 실제로 보는 화면과 순서</div></div></div>
+
+  <h3 id="user-start">처음 시작 · 초대에서 사용까지</h3>
+  <div class="flow">
+    <div class="st navy"><span class="k">사무실</span><b>사람 등록</b><span>이름 · 영문 이름 · 휴대폰</span></div>
+    <div class="ar">→</div>
+    <div class="st navy"><span class="k">사무실</span><b>초대 링크 보냄</b><span>카톡 · 문자 · 메일, 7일 유효</span></div>
+    <div class="ar">→</div>
+    <div class="st"><span class="k">교인</span><b>링크 열기</b><span>초대 내용만 보임</span></div>
+    <div class="ar">→</div>
+    <div class="st"><span class="k">교인</span><b>로그인</b><span>메일 6자리 코드 또는 카카오</span></div>
+    <div class="ar">→</div>
+    <div class="st"><span class="k">교인</span><b>본인 확인</b><span>휴대폰 뒤 4자리 (5회 틀리면 잠김)</span></div>
+  </div>
+  <div class="flow">
+    <div class="st ok" style="flex-basis:260px"><span class="k">일반 작성자</span><b>바로 사용 중</b><span>청구서를 쓸 수 있음</span></div>
+    <div class="st warn" style="flex-basis:260px"><span class="k">결재 관계자 (부장·장로·재정·관리자·감사위원)</span><b>"사무실 확인 중"</b><span>주일 가입 데스크에서 대면 확인 → 사용 중. 기다리는 동안 임시저장 가능</span></div>
+  </div>
+  <p class="flow-note">링크 토큰은 해시만 저장되고 처음 열 때 쿠키로 옮겨져 주소창에서 사라집니다(D28). 계정을 잃으면 사무실이 "다시 연결"로 새 초대를 보냅니다(D29).</p>
+
+  <h3 id="user-screens">화면 예시</h3>
+  <div class="phones">
+    <div>
+      <div class="phone" aria-label="홈 화면 예시">
+        <div class="bar"><i></i></div>
+        <div class="scr">
+          <div class="hdr">교회 지출청구</div>
+          <p style="margin:0 0 8px">사람 B님, 안녕하세요. <span class="mut">내 정보</span></p>
+          <div class="pc hl">
+            <h5>내가 볼 청구서 2건 <span class="en">To review</span></h5>
+            <div class="row"><span>성탄 행사 간식 · 사람 A<br><span class="mut">유년부 · 2026-0012 · 2일째</span></span><b>$128.40</b></div>
+            <div class="row"><span>교사 교재 · 사람 C<br><span class="mut">유년부 · 2026-0015 · 오늘</span></span><b>$64.00</b></div>
+          </div>
+          <span class="btn ghost">새 지출청구서 쓰기 <span class="en">New claim</span></span>
+          <div class="pc">
+            <h5>내 청구서 <span class="en">My claims</span></h5>
+            <div class="row"><span>수련회 장소 예약금<br><span class="mut">2026-0009</span></span><span style="text-align:right"><b>$300.00</b><br><span class="pill">수표 발행됨</span></span></div>
+            <div class="row"><span>꽃꽂이 재료<br><span class="mut">2026-0011</span></span><span style="text-align:right"><b>$42.18</b><br><span class="pill r">보완 요청 받음</span></span></div>
+          </div>
+          <span class="btn ghost">재정부 화면 <span class="en">Finance</span></span>
+        </div>
+      </div>
+      <div class="phone-cap">홈 · 내 차례인 건이 맨 위</div>
+    </div>
+    <div>
+      <div class="phone" aria-label="결재 화면 예시">
+        <div class="bar"><i></i></div>
+        <div class="scr">
+          <div class="hdr">지출청구서 2026-0012</div>
+          <div class="amt">$128.40</div>
+          <span class="pill">결재 중 · 담당 장로 차례</span>
+          <dl class="kv" style="margin-top:8px">
+            <dt>부서</dt><dd>유년부</dd>
+            <dt>작성</dt><dd>사람 A · 12/18</dd>
+            <dt>목적</dt><dd>성탄 행사 간식</dd>
+            <dt>받는 방법</dt><dd>수표 · 주일 수령</dd>
+          </dl>
+          <div class="thumbs"><span></span><span></span></div>
+          <div class="stamp">
+            <div class="h">작성</div><div class="h">부장</div><div class="h">장로</div><div class="h">재정부</div>
+            <div>제출<br>12/18</div><div class="seal">승인<br>12/18</div><div>대기</div><div>—</div>
+          </div>
+          <p class="mut" style="margin:4px 0 8px">승인을 누르면 확인 창: "$128.40 · 사람 A 앞 수표 · 영수증 2장을 승인합니다. 승인하면 되돌릴 수 없습니다."</p>
+          <div class="btns"><span class="btn ghost">보완 요청<br><span class="en">Request changes</span></span><span class="btn main">승인<br><span class="en" style="color:#cfd9e8">Approve</span></span></div>
+        </div>
+      </div>
+      <div class="phone-cap">결재 상세 · 종이 양식의 결재란 그대로</div>
+    </div>
+  </div>
+  <p class="flow-note" style="text-align:center">화면은 이해를 돕는 예시이고 실제 화면과 배치·문구가 조금 다릅니다. 이름은 가명입니다.</p>
+
+  <h3 id="user-roles">역할별 사용법</h3>
+  <div class="journey">
+    <div class="jr">
+      <div class="jh"><span class="who">작</span><div><b>작성자</b> <span>· 부서원 누구나</span></div></div>
+      <ol>
+        <li>홈에서 <b>새 지출청구서 쓰기</b> → 부서 선택</li>
+        <li>사용 목적, 사용일, 총액(세금·팁 포함) 입력</li>
+        <li>영수증 사진·PDF 첨부 (최대 20장. 아이폰 HEIC 사진은 브라우저가 열 수 있으면 올리기 전에 JPEG로 바꾸고, 안 되면 카메라 설정을 안내)</li>
+        <li>수표 받는 방법: 주일 재정부 수령 또는 우편</li>
+        <li><b>결재 올리기</b>(제출) → 문서번호 발급, 부장에게 메일. 홈에서 "지금 누구 차례"가 보임</li>
+        <li>보완 요청이 오면 메일 수신 → 고쳐서 다시 제출 (부장부터 다시)</li>
+        <li>"수표가 발행되었습니다" 메일 → 주일에 수령 또는 우편 도착</li>
+      </ol>
+    </div>
+    <div class="jr">
+      <div class="jh"><span class="who w">결</span><div><b>결재자</b> <span>· 부장, 담당 장로</span></div></div>
+      <ol>
+        <li>메일(또는 카톡 공유)로 결재 요청을 받음. 메일 제목에 작성자·금액·목적이 보임</li>
+        <li>링크 또는 홈의 <b>내가 볼 청구서</b>에서 열기 (오래된 순)</li>
+        <li>내용·영수증, 다시 올라온 건이면 이전 보완 요청 사유 확인</li>
+        <li><b>승인</b> 또는 <b>보완 요청</b>(사유 필수) → 확인 창에서 금액·수취인·영수증 장수를 한 번 더 봄</li>
+        <li>승인은 되돌릴 수 없음. 승인하면 본인에게 "승인하셨습니다" 메일</li>
+      </ol>
+    </div>
+    <div class="jr">
+      <div class="jh"><span class="who g">재</span><div><b>재정부원</b> <span>· 재정 담당 장로는 처리할 재정부원이 없을 때만 (본인 청구, 그 회차 결재자 등)</span></div></div>
+      <ol>
+        <li>재정부 화면의 <b>서류 확인 대기</b>에서 청구 열기. 결재자 1인·중복 의심 표시 확인 (중복 의심이면 확인 사유 한 줄)</li>
+        <li><b>서류 확인</b> 또는 <b>서류 보완 요청</b>(사유 필수, 부장부터 다시)</li>
+        <li><b>수표 발행 대기</b>에서 수표를 쓴 뒤 <b>수표 발행 기록</b>: 번호(숫자만)·발행일·수표에 쓴 금액. 같은 수취인의 여러 청구를 한 장으로 묶기 가능. 금액이 합계와 다르면 거부</li>
+        <li><b>수표 목록 · 은행 결제 전</b>에서 은행 명세서를 보고 <b>은행 결제 확인</b> (수표를 기록한 사람이 아닌 다른 사람이)</li>
+        <li>잘못 쓴 수표는 <b>무효</b>(사유 5자 이상) → 청구가 수표 대기로 돌아감. 번호는 다시 쓰지 않음</li>
+        <li>월별 지급 CSV, 오늘 기준 미지급·미결제 CSV 내려받기</li>
+      </ol>
+    </div>
+    <div class="jr">
+      <div class="jh"><span class="who p">관</span><div><b>관리자</b> <span>· 사무간사, 개발 담당</span></div></div>
+      <ol>
+        <li>부서 만들기, 사람 등록, 직책 배정(부장·장로·재정부원·재정 담당 장로, 시작·종료일)</li>
+        <li>초대 링크 만들기 → 카톡·문자로 전달. 결재 관계자는 대면 확인</li>
+        <li><b>막힌 건</b> 목록을 보고 해당 결재자에게 전화·카톡. 결재자가 바뀌었으면 직책을 고친 뒤 현재 단계를 새 담당자에게 다시 배정</li>
+        <li>작성자 차례로 오래 멈춘 건 확인. 작성자가 정지·미연결이면 그 청구를 사유를 적고 취소 (관리자 본인 청구는 불가)</li>
+        <li>교인 정보 수정, 정지·재활성, 로그인 다시 연결</li>
+        <li>관리자·감사위원 권한 부여·회수 (근거 필수, 본인 불가)</li>
+      </ol>
+    </div>
+    <div class="jr">
+      <div class="jh"><span class="who m">감</span><div><b>감사위원</b></div></div>
+      <ol>
+        <li>작성 중을 뺀 모든 청구와 수표 기록을 읽기만 함 (작성자가 뺀 영수증도 볼 수 있음)</li>
+        <li>분기마다 지급 목록과 은행 명세서를 대조하고 인쇄본에 서명 (운영 규정)</li>
+      </ol>
+    </div>
+  </div>
+
+  <h3 id="user-map">화면 지도</h3>
+  <div class="tw"><table>
+    <thead><tr><th>주소</th><th>누가</th><th>무엇을</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><code>/</code></td><td>모두</td><td>내가 볼 청구서, 새 청구서, 내 청구서, 재정부·관리자 화면 입구</td></tr>
+      <tr><td class="nw"><code>/login</code></td><td>모두</td><td>메일 코드 또는 카카오 로그인. 등록 여부는 알려 주지 않음</td></tr>
+      <tr><td class="nw"><code>/invite</code></td><td>초대받은 교인</td><td>본인 확인(휴대폰 뒤 4자리)과 계정 연결</td></tr>
+      <tr><td class="nw"><code>/profile</code></td><td>모두</td><td>영문 이름(수표 수취인), 우편 주소, 알림 메일</td></tr>
+      <tr><td class="nw"><code>/claims/new</code></td><td>작성자</td><td>부서를 골라 새 청구서 시작</td></tr>
+      <tr><td class="nw"><code>/claims/[id]</code></td><td>관계자</td><td>한 화면에서 역할에 따라 다른 패널: 작성·제출 / 승인·보완 요청 / 서류 확인·수표 기록</td></tr>
+      <tr><td class="nw"><code>/claims/[id]/print</code></td><td>읽기 권한자</td><td>종이 양식 인쇄본 (결재란, 현지 시각)</td></tr>
+      <tr><td class="nw"><code>/finance</code></td><td>재정부 · 감사위원</td><td>서류 확인 대기, 수표 발행 대기, 수표 목록 · 은행 결제 전, 월별 CSV</td></tr>
+      <tr><td class="nw"><code>/admin</code></td><td>관리자</td><td>사람·초대·대면 확인·직책·막힌 건·작성자 차례·권한</td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>서버 라우트 9개 (화면 없이 동작)</h4>
+  <div class="tw"><table>
+    <thead><tr><th>주소</th><th>하는 일</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><code>/invite/[token]</code></td><td>초대 링크를 처음 열 때 토큰을 쿠키로 옮기고 <code>/invite</code>로 보냄</td></tr>
+      <tr><td class="nw"><code>/auth/callback</code></td><td>로그인 뒤 세션을 만들고 원래 화면으로 돌려보냄</td></tr>
+      <tr><td class="nw"><code>/auth/kakao/start</code> · <code>/auth/kakao/callback</code></td><td>카카오 로그인 왕복</td></tr>
+      <tr><td class="nw"><code>/auth/signout</code></td><td>로그아웃</td></tr>
+      <tr><td class="nw"><code>/claims/[id]/receipts/[attachmentId]</code></td><td>권한을 확인하고 60초짜리 영수증 주소로 보냄</td></tr>
+      <tr><td class="nw"><code>/api/finance/export</code></td><td>재정 CSV 내려받기 (감사 기록에 남음)</td></tr>
+      <tr><td class="nw"><code>/api/cron/daily</code></td><td>매일 점검 (비밀 키가 있어야 실행)</td></tr>
+      <tr><td class="nw"><code>/api/health</code></td><td>DB·인증 상태 확인 (배포·감시용)</td></tr>
+    </tbody>
+  </table></div>
+  <p class="flow-note">시험용 <code>/trial</code> 화면 2개와 라우트 1개는 운영에서 404라 숫자에서 뺐습니다.</p>
+
+  <h4>화면에 보이는 상태 이름</h4>
+  <div class="tw"><table>
+    <thead><tr><th>화면 문구</th><th>영어</th><th>뜻</th></tr></thead>
+    <tbody>
+      <tr><td>작성 중</td><td>Draft</td><td>아직 제출 전. 작성자만 고칠 수 있음</td></tr>
+      <tr><td>결재 중</td><td>In review</td><td>부장 또는 담당 장로 차례</td></tr>
+      <tr><td>보완 요청 받음</td><td>Changes requested</td><td>작성자 차례. 고쳐서 다시 제출</td></tr>
+      <tr><td>재정부 확인 대기</td><td>Awaiting finance</td><td>결재 끝. 재정부가 서류를 볼 차례</td></tr>
+      <tr><td>서류 확인됨 · 수표 준비 중</td><td>Verified, check pending</td><td>수표를 쓰는 중</td></tr>
+      <tr><td>수표 발행됨</td><td>Check issued</td><td>수표 발행 기록 완료</td></tr>
+      <tr><td>취소됨</td><td>Cancelled</td><td>작성자 또는 사무실이 사유를 적고 취소. 번호는 재사용하지 않음</td></tr>
+    </tbody>
+  </table></div>
+  <h3 id="user-help">곤란할 때</h3>
+  <div class="tw"><table>
+    <thead><tr><th>상황</th><th>할 일</th></tr></thead>
+    <tbody>
+      <tr><td>사이트가 안 열림</td><td>사무실에 알림. 서버가 멈춘 동안 수표는 쓰지 않고, 하루를 넘기면 종이로 받아 두었다가 복구 뒤 다시 올림</td></tr>
+      <tr><td>휴대폰을 바꿈</td><td>같은 메일 주소로 6자리 코드 로그인을 하면 그대로 쓸 수 있음. 카카오도 같은 계정이면 됨</td></tr>
+      <tr><td>로그인 방법을 잃음 (메일 주소 변경, 카카오 계정 분실)</td><td>사무실이 "로그인 다시 연결"로 새 초대 링크를 보냄. 결재 관계자는 대면 확인을 다시 함</td></tr>
+      <tr><td>초대 링크가 만료됨 (7일)</td><td>사무실에 다시 보내 달라고 요청</td></tr>
+      <tr><td>내 청구가 오래 멈춤</td><td>홈에서 "지금 누구 차례"를 확인. 8일이 넘으면 사무실이 막힌 건 목록으로 연락함</td></tr>
+      <tr><td>문의</td><td>사무실 한 곳. 화면의 전화 버튼</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout"><b>막혀도 다음 행동이 보입니다.</b> 이미 처리된 건, 내 차례가 아닌 건, 등록되지 않은 계정, 오래된 화면마다 이유와 버튼(홈으로, 새로 보기, 사무실 전화)을 보여 줍니다.</div>
+</section>
+
+<!-- ============================== L2 ============================== -->
+<section class="part" id="l2">
+  <div class="part-head"><div class="num"><span class="lv l2">L2</span></div><div><h2>시스템 구성</h2><div class="q">어디서 무엇이 돌아가나</div></div></div>
+  <div class="callout warn"><b>설치 전 기준.</b> 이 장은 설계와 개발용 맥에서 두 번 한 리허설을 기준으로 합니다. 실제 맥미니 설치와 Cloudflare·메일·카카오·Drive 연결은 아직입니다.</div>
+
+  <h3 id="l2-arch">구성도</h3>
+  <figure>
+    <div class="scroll-x">
+    <svg viewBox="0 0 860 566" role="img" aria-label="휴대폰에서 Cloudflare를 거쳐 교회 맥미니의 앱과 Supabase로 가는 시스템 구성도">
+      <defs>
+        <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="s-head" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="ah2n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="s-head-navy" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+      <!-- phone -->
+      <rect class="s-box" x="8" y="196" width="126" height="96" rx="14"/>
+      <text class="s-t s-b" x="71" y="228" text-anchor="middle">휴대폰</text>
+      <text class="s-m" x="71" y="248" text-anchor="middle">브라우저</text>
+      <text class="s-m" x="71" y="265" text-anchor="middle">카톡 안 브라우저 포함</text>
+      <!-- cloudflare -->
+      <rect class="s-warn" x="160" y="150" width="150" height="188" rx="10"/>
+      <text class="s-t s-b" x="235" y="176" text-anchor="middle">Cloudflare</text>
+      <text class="s-m" x="235" y="200" text-anchor="middle">DNS epcsj-hub.org</text>
+      <text class="s-m" x="235" y="220" text-anchor="middle">HTTPS 인증서</text>
+      <text class="s-m" x="235" y="240" text-anchor="middle">URL 정규화</text>
+      <text class="s-m" x="235" y="260" text-anchor="middle">요청 제한 규칙</text>
+      <text class="s-m" x="235" y="280" text-anchor="middle">Tunnel 입구</text>
+      <text class="s-mono" x="235" y="320" text-anchor="middle">공유기 포트 열지 않음</text>
+      <path class="s-ar-navy" d="M134,244 H158" marker-end="url(#ah2n)"/>
+      <text class="s-mono" x="146" y="236" text-anchor="middle">www</text>
+      <text class="s-mono" x="146" y="262" text-anchor="middle">api</text>
+
+      <!-- mac mini -->
+      <rect class="s-band" x="336" y="16" width="516" height="440" rx="14"/>
+      <text class="s-title" x="352" y="38">전용 맥미니 · 유선 · UPS · 설치 전</text>
+
+      <rect class="s-box" x="352" y="200" width="122" height="88" rx="9"/>
+      <text class="s-t s-b" x="413" y="226" text-anchor="middle">cloudflared</text>
+      <text class="s-m" x="413" y="246" text-anchor="middle">Tunnel 출구</text>
+      <text class="s-m" x="413" y="264" text-anchor="middle">경로 허용 목록</text>
+      <path class="s-ar-navy" d="M310,244 H350" marker-end="url(#ah2n)"/>
+
+      <rect class="s-box" x="352" y="56" width="122" height="116" rx="9"/>
+      <text class="s-t s-b" x="413" y="80" text-anchor="middle">launchd</text>
+      <text class="s-m" x="413" y="100" text-anchor="middle">앱 · Colima 상시</text>
+      <text class="s-m" x="413" y="118" text-anchor="middle">점검 매일 07:00</text>
+      <text class="s-m" x="413" y="136" text-anchor="middle">백업 매일 03:30</text>
+      <text class="s-mono" x="413" y="158" text-anchor="middle">잠금 해제 뒤 자동 시작</text>
+
+      <rect class="s-navy" x="500" y="56" width="164" height="100" rx="9"/>
+      <text class="s-t s-b" x="582" y="82" text-anchor="middle">Next.js 앱</text>
+      <text class="s-m" x="582" y="102" text-anchor="middle">화면 · 서버 액션</text>
+      <text class="s-m" x="582" y="120" text-anchor="middle">알림 메일 · CSV · 인쇄</text>
+      <text class="s-mono" x="582" y="142" text-anchor="middle">127.0.0.1:3000</text>
+      <path class="s-ar-navy" d="M474,222 H488 V106 H498" marker-end="url(#ah2n)"/>
+      <text class="s-mono" x="480" y="190" text-anchor="end">www</text>
+
+      <!-- supabase in colima -->
+      <rect class="s-box" x="500" y="176" width="336" height="264" rx="10" style="stroke-dasharray:3 3"/>
+      <text class="s-title" x="514" y="196">Colima · Docker · Supabase 공식 구성 v0.8.4</text>
+
+      <rect class="s-navy" x="514" y="236" width="110" height="62" rx="8"/>
+      <text class="s-t s-b s-s" x="569" y="261" text-anchor="middle">게이트웨이</text>
+      <text class="s-mono" x="569" y="281" text-anchor="middle">127.0.0.1:8000</text>
+      <path class="s-ar-navy" d="M474,262 H512" marker-end="url(#ah2n)"/>
+      <text class="s-mono" x="493" y="280" text-anchor="middle">api</text>
+      <path class="s-ar" d="M600,156 V234" marker-end="url(#ah2)"/>
+      <text class="s-mono" x="606" y="170">내부 주소</text>
+
+      <rect class="s-box" x="640" y="204" width="100" height="40" rx="6"/>
+      <text class="s-t s-s" x="690" y="221" text-anchor="middle">인증</text>
+      <text class="s-mono" x="690" y="236" text-anchor="middle">GoTrue</text>
+      <rect class="s-box" x="640" y="252" width="100" height="40" rx="6"/>
+      <text class="s-t s-s" x="690" y="269" text-anchor="middle">데이터 API</text>
+      <text class="s-mono" x="690" y="284" text-anchor="middle">PostgREST</text>
+      <rect class="s-box" x="640" y="300" width="100" height="40" rx="6"/>
+      <text class="s-t s-s" x="690" y="317" text-anchor="middle">파일</text>
+      <text class="s-mono" x="690" y="332" text-anchor="middle">Storage</text>
+      <rect class="s-box" x="762" y="204" width="66" height="40" rx="6" style="stroke-dasharray:3 3"/>
+      <text class="s-t s-s" x="795" y="221" text-anchor="middle">Studio</text>
+      <text class="s-mono" x="795" y="236" text-anchor="middle">외부 차단</text>
+      <path class="s-ar" d="M624,250 H630 V224 H638" marker-end="url(#ah2)"/>
+      <path class="s-ar" d="M624,272 H638" marker-end="url(#ah2)"/>
+      <path class="s-ar" d="M624,286 H630 V320 H638" marker-end="url(#ah2)"/>
+      <path class="s-ar" d="M740,224 H752 M740,272 H752 M740,320 H752"/>
+      <path class="s-ar" d="M752,224 V348" marker-end="url(#ah2)"/>
+
+      <rect class="s-seal" x="514" y="350" width="314" height="82" rx="9"/>
+      <text class="s-t s-b" x="671" y="372" text-anchor="middle">Postgres 17</text>
+      <text class="s-m" x="671" y="390" text-anchor="middle">결재 함수 101개 · RLS 정책 · 감사 트리거</text>
+      <text class="s-m" x="671" y="406" text-anchor="middle">영수증 파일은 Storage 볼륨</text>
+      <text class="s-mono" x="671" y="424" text-anchor="middle">127.0.0.1:54329 · 외부 비공개</text>
+
+      <!-- external services -->
+      <text class="s-title" x="8" y="474">외부 서비스 · tech-media 공용 계정 소유</text>
+      <path class="s-ar s-dash" d="M88,500 V484 H774 V500"/>
+      <path class="s-ar s-dash" d="M260,500 V484"/>
+      <path class="s-ar s-dash" d="M432,500 V484"/>
+      <path class="s-ar s-dash" d="M604,500 V484"/>
+      <path class="s-ar s-dash" d="M594,484 V458"/>
+      <text class="s-mono" x="600" y="474">맥미니가 바깥으로 거는 연결</text>
+      <rect class="s-box" x="8" y="500" width="160" height="58" rx="8"/>
+      <text class="s-t s-b s-s" x="88" y="522" text-anchor="middle">Resend</text>
+      <text class="s-m" x="88" y="542" text-anchor="middle">알림·로그인 코드 메일</text>
+      <rect class="s-box" x="180" y="500" width="160" height="58" rx="8"/>
+      <text class="s-t s-b s-s" x="260" y="522" text-anchor="middle">카카오</text>
+      <text class="s-m" x="260" y="542" text-anchor="middle">로그인 (OAuth)</text>
+      <rect class="s-box" x="352" y="500" width="160" height="58" rx="8"/>
+      <text class="s-t s-b s-s" x="432" y="522" text-anchor="middle">Google Drive</text>
+      <text class="s-m" x="432" y="542" text-anchor="middle">암호화 백업 보관</text>
+      <rect class="s-box" x="524" y="500" width="160" height="58" rx="8"/>
+      <text class="s-t s-b s-s" x="604" y="522" text-anchor="middle">healthchecks.io</text>
+      <text class="s-m" x="604" y="542" text-anchor="middle">점검·백업 실패 알림</text>
+      <rect class="s-box" x="696" y="500" width="156" height="58" rx="8"/>
+      <text class="s-t s-b s-s" x="774" y="522" text-anchor="middle">GitHub</text>
+      <text class="s-m" x="774" y="542" text-anchor="middle">코드 · CI · 배포 원본</text>
+    </svg>
+    </div>
+    <figcaption><b>그림 2.</b> 밖에서 맥미니로 들어오는 길은 Cloudflare Tunnel 하나다(맥미니가 바깥으로 연결을 연다). api 주소로는 로그인 경로 일부와 서명된 영수증 주소만 들어온다. 앱의 모든 데이터 처리는 맥 안에서 "앱 → 게이트웨이 → 데이터 API → Postgres"로 간다. 점선은 맥미니가 바깥으로 거는 연결이다.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <thead><tr><th>구성 요소</th><th>역할</th><th>위치 · 버전</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">Next.js 앱</td><td>화면, 서버 액션, 알림 메일 발송, 인쇄본, CSV, 매일 점검 라우트</td><td>맥미니 <code>next start</code>, Next.js 16, Node 24</td></tr>
+      <tr><td class="nw">Supabase</td><td>Postgres(데이터·결재 함수), 인증(GoTrue), 데이터 API(PostgREST), 파일(Storage)</td><td>공식 self-hosted Docker 구성 <code>self-hosted/v0.8.4</code> 고정</td></tr>
+      <tr><td class="nw">Colima</td><td>맥에서 Docker 컨테이너를 돌리는 가상 머신</td><td>LaunchDaemon으로 상시 실행</td></tr>
+      <tr><td class="nw">Cloudflare</td><td>도메인, DNS, HTTPS, Tunnel, 경로·요청 제한</td><td>무료 요금제, 도메인만 연 단위 비용</td></tr>
+      <tr><td class="nw">Resend</td><td>메일 발송. 로그인 코드용·알림용 키를 따로 씀</td><td><code>notify.epcsj-hub.org</code></td></tr>
+      <tr><td class="nw">카카오</td><td>카카오 로그인 (이메일 없이)</td><td>카카오 개발자 일반 앱</td></tr>
+      <tr><td class="nw">Google Drive</td><td>매일 암호화 백업 보관 (31일 + 월별 7년)</td><td>교회 Google Workspace, rclone <code>drive.file</code> 권한</td></tr>
+      <tr><td class="nw">GitHub</td><td>코드 보관, CI(검사·DB 테스트), 배포 원본</td><td>private 저장소, Actions</td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>주소 세 개</h4>
+  <div class="tw"><table>
+    <thead><tr><th>주소</th><th>용도</th><th>맥 안 연결 대상</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><code>www.epcsj-hub.org</code></td><td>교인이 여는 화면</td><td>앱 <code>127.0.0.1:3000</code></td></tr>
+      <tr><td class="nw"><code>api.epcsj-hub.org</code></td><td>브라우저 로그인·영수증 열람에 필요한 경로만</td><td>게이트웨이 <code>127.0.0.1:8000</code></td></tr>
+      <tr><td class="nw"><code>notify.epcsj-hub.org</code></td><td>메일 보내는 주소 (받는 곳 아님)</td><td>없음 (Resend DNS 레코드)</td></tr>
+    </tbody>
+  </table></div>
+  <p class="flow-note">기존 교회 도메인 <code>epcsj.org</code>(홈페이지·메일)는 건드리지 않습니다(D42).</p>
+
+  <h4>비밀값 파일 (저장소 밖, 맥미니에만)</h4>
+  <div class="tw"><table>
+    <thead><tr><th>파일</th><th>내용</th><th>권한</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><code>~/church/supabase/.env</code></td><td>Supabase 비밀값 (설치 때 맥미니에서 새로 생성)</td><td>600</td></tr>
+      <tr><td class="nw"><code>~/church/app.env</code></td><td>앱 환경변수 (서버 키, 메일 키, 점검 비밀 키)</td><td>600</td></tr>
+      <tr><td class="nw"><code>~/church/deploy.env</code></td><td>DB 관리자 접속 주소 (마이그레이션용, 앱은 모름)</td><td>600</td></tr>
+      <tr><td class="nw"><code>~/church/backup.env</code></td><td>백업용 접속 정보, age 공개 키, Drive 위치</td><td>600</td></tr>
+    </tbody>
+  </table></div>
+  <p class="flow-note">저장소에는 빈 자리표시만 있고 실제 값은 없습니다. 백업 복호화 키(age 개인 키)는 맥미니에도 두지 않습니다.</p>
+
+  <h3 id="l2-net">외부 공개 범위</h3>
+  <p>API 주소는 "필요한 것만 열고 나머지는 모두 닫는" 허용 목록입니다. 위에서부터 차례로 판정합니다.</p>
+  <div class="tw"><table>
+    <thead><tr><th>#</th><th>경로 (api 주소)</th><th>판정</th><th>왜</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code>..</code>, <code>//</code>, <code>%2e</code>, <code>%2f</code>, <code>%5c</code>, <code>\</code> 포함</td><td><span class="lv u">404</span></td><td>게이트웨이가 경로를 정리하기 전에 우회 시도를 끊음</td></tr>
+      <tr><td>2</td><td><code>/auth/v1/</code> <code>otp · verify · token · user · authorize · callback</code></td><td><span class="lv l2">통과</span></td><td>로그인 코드 요청·확인, 세션 갱신, 카카오</td></tr>
+      <tr><td>3</td><td><code>/storage/v1/object/sign/receipts/…</code></td><td><span class="lv l2">통과</span></td><td>60초짜리 서명된 영수증 주소</td></tr>
+      <tr><td>4</td><td>그 밖의 모든 경로 (데이터 API, 가입, 관리, Studio …)</td><td><span class="lv u">404</span></td><td>서버만 맥 안에서 씀</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout warn"><b>이중 방어.</b> Cloudflare 쪽에서도 URL 정규화와 요청 제한 규칙을 켜고, 인증 서버는 접속자 IP별로 코드 확인을 5분에 30회로 제한합니다(D47).</div>
+
+  <h3 id="l2-day">하루 운영</h3>
+  <div class="day">
+    <div class="tm">상시</div><div>앱과 Colima(Supabase)가 LaunchDaemon으로 실행. 꺼지면 launchd가 다시 띄움. 정전 뒤 맥이 자동으로 켜지지만, FileVault를 켜 두면 누군가 잠금을 풀어야 서비스가 다시 뜸 (그동안 사이트 중단)</div>
+    <div class="tm">03:30</div><div>매일 백업: DB 덤프 + 영수증 전부 → 해시 대조 → age 암호화 → Google Drive <code>daily/</code>(31일), 그달 첫 성공본은 <code>monthly/</code>(7년). 실패하면 healthchecks.io가 메일</div>
+    <div class="tm">07:00</div><div>매일 점검: 밀린 알림 재발송, 관리자에게 막힌 건, 재정부에게 90일 넘은 은행 결제 전 수표. 막힌 건이 없으면 월요일에 "이상 없음"</div>
+    <div class="tm">수시</div><div>상태가 바뀔 때마다 다음 사람에게 알림 메일 (응답을 보낸 뒤 발송)</div>
+    <div class="tm">배포</div><div>기술 담당이 맥미니에서 <code>deploy.sh</code> 실행. CI 통과한 main 커밋만, 상태 확인에 실패하면 앱을 이전 배포본으로 되돌림</div>
+    <div class="tm">분기</div><div>다른 맥에서 복원 연습, 감사위원 분기 대조</div>
+  </div>
+
+  <h4>비용</h4>
+  <div class="tw"><table>
+    <thead><tr><th>항목</th><th>비용</th><th>메모</th></tr></thead>
+    <tbody>
+      <tr><td>맥미니 · UPS</td><td>$0</td><td>개발 담당이 제공하는 맥미니와 기존 UPS. 전기료 소액</td></tr>
+      <tr><td>Cloudflare Tunnel · DNS</td><td>$0</td><td>무료 요금제</td></tr>
+      <tr><td>도메인 <code>epcsj-hub.org</code></td><td>연 $10~20 수준</td><td>Cloudflare Registrar</td></tr>
+      <tr><td>메일 (Resend)</td><td>$0 ~ 소액</td><td>이 규모는 무료 구간 예상 (확인 필요)</td></tr>
+      <tr><td>Google Drive · GitHub · healthchecks.io</td><td>$0</td><td>교회 Workspace, private 저장소, 무료 요금제</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================== L3 ============================== -->
+<section class="part" id="l3">
+  <div class="part-head"><div class="num"><span class="lv l3">L3</span></div><div><h2>모듈과 데이터</h2><div class="q">안이 어떻게 나뉘나</div></div></div>
+
+  <h3 id="l3-repo">저장소 구성</h3>
+  <div class="tree" role="table" aria-label="저장소 폴더와 규모">
+    <div class="r"><span class="p">intra-net/</span><span class="lines">줄 수</span><span class="d">설명</span></div>
+    <div class="r"><span class="p">├─ src/app/            48개</span><span><span class="bar" style="width:100%;display:block"></span></span><span class="d">화면·서버 액션·라우트 · 5,259줄</span></div>
+    <div class="r"><span class="p">├─ src/lib/            25개</span><span><span class="bar" style="width:34%;display:block"></span></span><span class="d">Supabase 클라이언트, 금액·시간대·문구, 서버 전용 코드 · 1,805줄</span></div>
+    <div class="r"><span class="p">├─ src/supabase/</span><span></span><span class="d">Supabase CLI 작업 폴더 (<code>--workdir src</code>)</span></div>
+    <div class="r"><span class="p">│  ├─ migrations/      12개</span><span><span class="bar db" style="width:87%;display:block"></span></span><span class="d">테이블·RLS·결재 함수 · 4,588줄</span></div>
+    <div class="r"><span class="p">│  ├─ tests/            4개</span><span><span class="bar db" style="width:15%;display:block"></span></span><span class="d">pgTAP 143건 · 775줄</span></div>
+    <div class="r"><span class="p">│  └─ seed.sql, seeds/</span><span></span><span class="d">로컬 가상 데이터, 시험 버킷</span></div>
+    <div class="r"><span class="p">├─ src/tests/           9개</span><span><span class="bar" style="width:10%;display:block"></span></span><span class="d">통합(동시성·Storage), E2E(Playwright) · 540줄</span></div>
+    <div class="r"><span class="p">├─ src/ops/            17개</span><span><span class="bar ops" style="width:11%;display:block"></span></span><span class="d">맥미니 설치·배포·백업·복원, launchd, Tunnel · 579줄</span></div>
+    <div class="r"><span class="p">├─ src/scripts/         3개</span><span><span class="bar ops" style="width:4%;display:block"></span></span><span class="d">백업, 영수증 복원, 로컬 환경 파일 생성 · 220줄</span></div>
+    <div class="r"><span class="p">├─ doc/                16개</span><span><span class="bar doc" style="width:48%;display:block"></span></span><span class="d">설계서, 결정, 절차서, 레드팀 기록 (한국어)</span></div>
+    <div class="r"><span class="p">└─ build/</span><span></span><span class="d">빌드·테스트 산출물. 커밋하지 않음</span></div>
+  </div>
+  <p class="flow-note">파일 수와 줄 수는 2026-11-23 기준 Git에 들어 있는 파일로 셌습니다(이 보고서 제외).</p>
+
+  <h3 id="l3-layers">요청 처리 계층</h3>
+  <p>버튼 하나를 누르면 아래 다섯 층을 지나갑니다. <b>권한 판단은 ④·⑤에서만</b> 합니다. 위층이 실수해도 DB가 거부합니다.</p>
+  <div class="layers">
+    <div class="layer"><div class="n">①</div><div class="what"><b>화면</b><code>src/app/**/page.tsx</code></div><div class="rule">React 서버 컴포넌트. 데이터는 요청마다 새로 읽음(공용 캐시 안 씀, D2). <code>src/proxy.ts</code>는 세션 쿠키만 갱신</div></div>
+    <div class="layer"><div class="n">②</div><div class="what"><b>서버 액션 · 라우트</b><code>actions.ts</code> · <code>route.ts</code></div><div class="rule">입력 모양 검사, 영수증 바이트 검사·해시 계산, 오류 코드를 한·영 문구로 바꿈</div></div>
+    <div class="layer"><div class="n">③</div><div class="what"><b>Supabase 클라이언트</b><code>lib/supabase/server.ts</code> · <code>lib/server/admin.ts</code></div><div class="rule">보통은 <b>사용자 세션</b>으로 호출. 관리자 키(service role)를 읽는 곳은 <code>src/lib/server/admin.ts</code> 한 곳이고, 서버 코드에서만 씀: 영수증 저장, 초대 확인, 알림 발송, 매일 점검, 상태 확인</div></div>
+    <div class="layer db"><div class="n">④</div><div class="what"><b>DB 함수 (RPC)</b><code>public.*</code> · <code>private.*</code></div><div class="rule">상태를 바꾸는 함수는 <code>SECURITY DEFINER</code>, <code>search_path=''</code>. 누구인지·누구 차례인지·버전을 확인하고 상태를 바꿈. 같은 트랜잭션에서 알림 행을 쓰고, 감사 기록은 트리거가 남김</div></div>
+    <div class="layer db"><div class="n">⑤</div><div class="what"><b>테이블 + RLS + 트리거</b>20개 테이블</div><div class="rule">읽기는 행 단위 권한(RLS). 상태 컬럼을 직접 쓰는 권한은 없음. 감사 기록은 추가 전용</div></div>
+  </div>
+  <p class="flow-note">규칙: 결재 상태 변경은 <code>src/supabase/migrations</code>의 Postgres 함수로만 합니다. 화면이나 서버 코드에서 상태 컬럼을 직접 쓰지 않습니다.</p>
+
+  <h3 id="l3-data">데이터 모델</h3>
+  <figure>
+    <div class="scroll-x">
+    <svg viewBox="0 0 840 440" role="img" aria-label="테이블 20개를 네 묶음으로 나눈 데이터 모델">
+      <defs>
+        <marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="s-head" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+      <!-- cluster A -->
+      <rect class="s-band" x="8" y="20" width="250" height="236" rx="12"/>
+      <text class="s-title" x="22" y="42">사람 · 조직</text>
+      <g>
+        <rect class="s-navy" x="22" y="54" width="222" height="26" rx="6"/><text class="s-t s-s" x="32" y="72"><tspan class="s-b">people</tspan> 교인 · 상태 4가지</text>
+        <rect class="s-box" x="22" y="86" width="222" height="26" rx="6"/><text class="s-t s-s" x="32" y="104"><tspan class="s-b">person_logins</tspan> 로그인 계정 (1:N)</text>
+        <rect class="s-box" x="22" y="118" width="222" height="26" rx="6"/><text class="s-t s-s" x="32" y="136"><tspan class="s-b">departments</tspan> 부서 (상위 부서)</text>
+        <rect class="s-box" x="22" y="150" width="222" height="26" rx="6"/><text class="s-t s-s" x="32" y="168"><tspan class="s-b">positions</tspan> 직책 · 기간</text>
+        <rect class="s-box" x="22" y="182" width="222" height="26" rx="6"/><text class="s-t s-s" x="32" y="200"><tspan class="s-b">admin_grants</tspan> 관리자·감사 권한</text>
+        <rect class="s-box" x="22" y="214" width="222" height="26" rx="6"/><text class="s-t s-s" x="32" y="232"><tspan class="s-b">invites</tspan> 초대 (토큰 해시)</text>
+      </g>
+      <!-- cluster B -->
+      <rect class="s-band" x="294" y="20" width="262" height="300" rx="12"/>
+      <text class="s-title" x="308" y="42">청구 · 결재</text>
+      <g>
+        <rect class="s-seal" x="308" y="54" width="234" height="26" rx="6"/><text class="s-t s-s" x="318" y="72"><tspan class="s-b">claims</tspan> 청구서 · 상태 · 버전 · 회차</text>
+        <rect class="s-box" x="308" y="86" width="234" height="26" rx="6"/><text class="s-t s-s" x="318" y="104"><tspan class="s-b">claim_lines</tspan> 항목 · 금액(센트)</text>
+        <rect class="s-box" x="308" y="118" width="234" height="26" rx="6"/><text class="s-t s-s" x="318" y="136"><tspan class="s-b">approval_steps</tspan> 결재 단계 · 해시</text>
+        <rect class="s-box" x="308" y="150" width="234" height="26" rx="6"/><text class="s-t s-s" x="318" y="168"><tspan class="s-b">attachments</tspan> 영수증 · sha256</text>
+        <rect class="s-box" x="308" y="182" width="234" height="26" rx="6"/><text class="s-t s-s" x="318" y="200"><tspan class="s-b">claim_returns</tspan> 서류 보완 요청 기록</text>
+        <rect class="s-box" x="308" y="214" width="234" height="26" rx="6"/><text class="s-t s-s" x="318" y="232"><tspan class="s-b">claim_duplicates</tspan> 중복 의심</text>
+        <rect class="s-box" x="308" y="246" width="234" height="26" rx="6"/><text class="s-t s-s" x="318" y="264"><tspan class="s-b">claim_counters</tspan> 연도별 문서번호</text>
+        <text class="s-m" x="318" y="300">문서번호 예: 2026-0012</text>
+      </g>
+      <!-- cluster C -->
+      <rect class="s-band" x="592" y="20" width="240" height="140" rx="12"/>
+      <text class="s-title" x="606" y="42">지급</text>
+      <rect class="s-ok" x="606" y="54" width="212" height="26" rx="6"/><text class="s-t s-s" x="616" y="72"><tspan class="s-b">payments</tspan> 수표 · 상태 3가지</text>
+      <rect class="s-box" x="606" y="86" width="212" height="26" rx="6"/><text class="s-t s-s" x="616" y="104"><tspan class="s-b">payment_claims</tspan> 수표↔청구 N:M</text>
+      <rect class="s-box" x="606" y="118" width="212" height="26" rx="6"/><text class="s-t s-s" x="616" y="136"><tspan class="s-b">payment_events</tspan> 발행·무효·결제 이력</text>
+      <!-- cluster D -->
+      <rect class="s-band" x="592" y="184" width="240" height="172" rx="12"/>
+      <text class="s-title" x="606" y="206">운영 · 기록</text>
+      <rect class="s-box" x="606" y="218" width="212" height="26" rx="6"/><text class="s-t s-s" x="616" y="236"><tspan class="s-b">notifications</tspan> 보낼 알림 · 재시도</text>
+      <rect class="s-box" x="606" y="250" width="212" height="26" rx="6"/><text class="s-t s-s" x="616" y="268"><tspan class="s-b">digest_runs</tspan> 매일 점검 1회 보장</text>
+      <rect class="s-box" x="606" y="282" width="212" height="26" rx="6"/><text class="s-t s-s" x="616" y="300"><tspan class="s-b">audit_logs</tspan> 감사 기록 (추가 전용)</text>
+      <rect class="s-box" x="606" y="314" width="212" height="26" rx="6"/><text class="s-t s-s" x="616" y="332"><tspan class="s-b">app_settings</tspan> 시간대 · 기준 일수</text>
+      <!-- outside -->
+      <rect class="s-box" x="8" y="292" width="250" height="44" rx="8" style="stroke-dasharray:4 3"/>
+      <text class="s-t s-s s-b" x="133" y="312" text-anchor="middle">auth.users</text>
+      <text class="s-m" x="133" y="328" text-anchor="middle">Supabase 인증 (메일·카카오)</text>
+      <rect class="s-box" x="294" y="360" width="262" height="44" rx="8" style="stroke-dasharray:4 3"/>
+      <text class="s-t s-s s-b" x="425" y="380" text-anchor="middle">Storage · receipts 버킷</text>
+      <text class="s-m" x="425" y="396" text-anchor="middle">영수증 파일 (덮어쓰기·직접 쓰기 금지)</text>
+      <!-- links -->
+      <path class="s-ar" d="M244,67 H306" marker-end="url(#ah3)"/>
+      <text class="s-mono" x="275" y="58" text-anchor="middle">작성자</text>
+      <path class="s-ar" d="M244,74 H270 V131 H306" marker-end="url(#ah3)"/>
+      <text class="s-mono" x="276" y="150" text-anchor="middle">결재자</text>
+      <path class="s-ar" d="M542,62 H586 V99 H604" marker-end="url(#ah3)"/>
+      <path class="s-ar" d="M542,72 H572 V231 H604" marker-end="url(#ah3)"/>
+      <path class="s-ar s-dash" d="M133,256 V290"/>
+      <text class="s-mono" x="140" y="276">1:N 연결</text>
+      <path class="s-ar s-dash" d="M425,320 V358"/>
+      <text class="s-mono" x="432" y="344">경로·해시</text>
+      <text class="s-m" x="592" y="384">주요 테이블 변경 → audit_logs (트리거)</text>
+      <text class="s-m" x="592" y="402">금액은 모두 센트 단위 정수</text>
+    </svg>
+    </div>
+    <figcaption><b>그림 3.</b> 테이블 20개를 네 묶음으로 나눴다. 결재자는 제출할 때 부서 직책(<code>positions</code>)으로 정해 <code>approval_steps</code>에 사람으로 고정한다. 사람(<code>people</code>)과 로그인 계정(<code>person_logins</code>)을 분리해 메일 계정과 카카오 계정이 한 사람에게 묶인다(D6). 수표 한 장이 여러 청구를 묶을 수 있다(<code>payment_claims</code>).</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <thead><tr><th>열거형</th><th>값</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">교인 상태</td><td><code>invited</code> 초대 전 · <code>pending</code> 사무실 확인 중 · <code>active</code> 사용 중 · <code>suspended</code> 정지</td></tr>
+      <tr><td class="nw">직책</td><td><code>dept_head</code> 부장 · <code>elder</code> 담당 장로 · <code>finance</code> 재정부원 · <code>finance_elder</code> 재정 담당 장로 (부장·장로는 기간 겹침 금지)</td></tr>
+      <tr><td class="nw">권한</td><td><code>admin</code> 관리자 · <code>auditor</code> 감사위원 (스키마에 <code>emergency</code> 값이 있으나 쓰지 않음)</td></tr>
+      <tr><td class="nw">수표 상태</td><td><code>issued</code> 발행 · <code>cleared</code> 은행 결제 · <code>void</code> 무효</td></tr>
+      <tr><td class="nw">수표 받는 방법</td><td><code>pickup</code> 주일 수령 · <code>mail</code> 우편</td></tr>
+      <tr><td class="nw">결재 결정</td><td><code>approve</code> 승인 · <code>reject</code> 보완 요청</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="l3-read">누가 무엇을 보나</h3>
+  <p>청구 읽기 권한은 DB가 행마다 판단합니다(<code>private.can_read_claim</code>). 운영 규정의 "열람 범위" 조항과 같은 내용입니다.</p>
+  <div class="tw"><table>
+    <thead><tr><th>누가</th><th>볼 수 있는 청구</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">작성자</td><td>본인 청구 전부 (작성 중 포함)</td></tr>
+      <tr><td class="nw">결재자</td><td>본인 차례가 왔거나 본인이 결재한 청구. 앞 단계가 끝나기 전에는 못 봄</td></tr>
+      <tr><td class="nw">재정부원 · 재정 담당 장로</td><td>결재가 끝난 청구 (재정부 확인 대기 이후, 취소 포함)</td></tr>
+      <tr><td class="nw">감사위원</td><td>작성 중·삭제를 뺀 모든 청구</td></tr>
+      <tr><td class="nw">관리자</td><td>청구 내용은 못 봄. 막힌 건·작성자 차례 목록의 요약(번호·부서·작성자·지금 차례)만</td></tr>
+      <tr><td class="nw">그 밖의 교인</td><td>못 봄</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="l3-state">청구 상태</h3>
+  <figure>
+    <div class="scroll-x">
+    <svg viewBox="0 0 850 304" role="img" aria-label="청구서 상태 전이도">
+      <defs>
+        <marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="s-head" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="ah4s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="s-head-seal" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+      <g transform="translate(16,0)">
+      <!-- top row -->
+      <rect class="s-box" x="10" y="60" width="120" height="54" rx="10"/>
+      <text class="s-t s-b s-s" x="70" y="83" text-anchor="middle">작성 중</text><text class="s-mono" x="70" y="100" text-anchor="middle">draft</text>
+      <rect class="s-navy" x="180" y="60" width="120" height="54" rx="10"/>
+      <text class="s-t s-b s-s" x="240" y="83" text-anchor="middle">결재 중</text><text class="s-mono" x="240" y="100" text-anchor="middle">in_review</text>
+      <rect class="s-ok" x="350" y="60" width="120" height="54" rx="10"/>
+      <text class="s-t s-b s-s" x="410" y="83" text-anchor="middle">재정부 확인 대기</text><text class="s-mono" x="410" y="100" text-anchor="middle">approved</text>
+      <rect class="s-ok" x="520" y="60" width="120" height="54" rx="10"/>
+      <text class="s-t s-b s-s" x="580" y="83" text-anchor="middle">서류 확인됨</text><text class="s-mono" x="580" y="100" text-anchor="middle">received</text>
+      <rect class="s-seal" x="690" y="60" width="120" height="54" rx="10"/>
+      <text class="s-t s-b s-s" x="750" y="83" text-anchor="middle">수표 발행됨</text><text class="s-mono" x="750" y="100" text-anchor="middle">paid</text>
+      <!-- bottom row -->
+      <rect class="s-box" x="10" y="200" width="120" height="54" rx="10"/>
+      <text class="s-t s-b s-s" x="70" y="223" text-anchor="middle">삭제됨</text><text class="s-mono" x="70" y="240" text-anchor="middle">deleted</text>
+      <rect class="s-warn" x="180" y="200" width="120" height="54" rx="10"/>
+      <text class="s-t s-b s-s" x="240" y="223" text-anchor="middle">보완 요청 받음</text><text class="s-mono" x="240" y="240" text-anchor="middle">rejected</text>
+      <rect class="s-box" x="520" y="200" width="120" height="54" rx="10"/>
+      <text class="s-t s-b s-s" x="580" y="223" text-anchor="middle">취소됨</text><text class="s-mono" x="580" y="240" text-anchor="middle">cancelled</text>
+      <!-- edges -->
+      <path class="s-ar" d="M130,78 H178" marker-end="url(#ah4)"/>
+      <text class="s-m" x="155" y="72" text-anchor="middle">제출</text>
+      <path class="s-ar" d="M180,98 H132" marker-end="url(#ah4)"/>
+      <text class="s-m" x="138" y="134">도로 가져오기</text>
+      <path class="s-ar" d="M215,60 C215,22 265,22 265,58" marker-end="url(#ah4)"/>
+      <text class="s-m" x="240" y="18" text-anchor="middle">승인 (다음 단계로)</text>
+      <path class="s-ar" d="M300,87 H348" marker-end="url(#ah4)"/>
+      <text class="s-m" x="325" y="52" text-anchor="middle">마지막 승인</text>
+      <path class="s-ar" d="M470,87 H518" marker-end="url(#ah4)"/>
+      <text class="s-m" x="495" y="52" text-anchor="middle">서류 확인</text>
+      <path class="s-ar" d="M640,80 H688" marker-end="url(#ah4)"/>
+      <text class="s-m" x="664" y="52" text-anchor="middle">수표 기록</text>
+      <path class="s-ar-seal" d="M720,114 C720,150 610,150 600,116" marker-end="url(#ah4s)"/>
+      <text class="s-m" x="700" y="160" text-anchor="middle" style="fill:var(--seal)">수표 무효</text>
+      <path class="s-ar" d="M240,114 V198" marker-end="url(#ah4)"/>
+      <text class="s-m" x="248" y="160">보완 요청</text>
+      <path class="s-ar-seal" d="M410,114 V168 H320 L300,198" marker-end="url(#ah4s)"/>
+      <path class="s-ar-seal" d="M560,114 V168 H410"/>
+      <text class="s-m" x="485" y="184" text-anchor="middle" style="fill:var(--seal)">서류 보완 요청 (수표 전)</text>
+      <path class="s-ar" d="M190,200 L100,116" marker-end="url(#ah4)"/>
+      <text class="s-m" x="128" y="176" text-anchor="end">고치기 시작</text>
+      <path class="s-ar" d="M40,114 V198" marker-end="url(#ah4)"/>
+      <text class="s-m" x="34" y="150" text-anchor="end" transform="rotate(-90 34 150)">삭제</text>
+      <path class="s-ar" d="M300,234 H518" marker-end="url(#ah4)"/>
+      <text class="s-m" x="410" y="250" text-anchor="middle">취소 (사유)</text>
+      <path class="s-ar" d="M10,100 H-6 V284 H580 V256" marker-end="url(#ah4)"/>
+      <text class="s-m" x="300" y="298" text-anchor="middle">취소 (사유) · 문서번호가 있는 작성 중 청구</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption><b>그림 4.</b> 청구 상태 8가지. 화살표마다 DB 함수가 대응한다(취소는 작성자용과 관리자용 두 함수). 문서번호를 받은 작성 중 청구도 사유를 적고 취소할 수 있다(D32). 삭제는 문서번호가 없는 초안만 된다. 수표의 결제 확인(<code>cleared</code>)은 청구 상태가 아니라 수표 상태다.</figcaption>
+  </figure>
+
+  <div class="tw"><table>
+    <thead><tr><th>전이</th><th>누가</th><th>DB 함수</th></tr></thead>
+    <tbody>
+      <tr><td>작성 중 → 결재 중</td><td>작성자</td><td><code>submit_claim</code></td></tr>
+      <tr><td>결재 중 → 다음 단계 · 재정부 확인 대기 · 보완 요청</td><td>그 단계 결재자</td><td><code>act_on_claim</code></td></tr>
+      <tr><td>결재 중 → 작성 중</td><td>작성자 (첫 승인 전)</td><td><code>withdraw_claim</code></td></tr>
+      <tr><td>보완 요청 받음 → 작성 중</td><td>작성자</td><td><code>start_revision</code></td></tr>
+      <tr><td>재정부 확인 대기 → 서류 확인됨</td><td>재정 처리 자격자</td><td><code>receive_claim</code></td></tr>
+      <tr><td>재정부 단계 → 보완 요청 받음</td><td>재정 처리 자격자</td><td><code>return_claim</code></td></tr>
+      <tr><td>서류 확인됨 → 수표 발행됨</td><td>재정 처리 자격자</td><td><code>record_payment</code></td></tr>
+      <tr><td>수표 발행됨 → 서류 확인됨</td><td>재정 처리 자격자 · 발행자</td><td><code>void_payment</code></td></tr>
+      <tr><td>작성 중(문서번호 있음) · 보완 요청 → 취소됨</td><td>작성자 / 관리자 (작성자가 정지·미연결일 때만, 관리자 본인 청구는 불가)</td><td><code>cancel_own_claim</code> / <code>admin_cancel_claim</code></td></tr>
+      <tr><td>작성 중(문서번호 없음) → 삭제됨</td><td>작성자</td><td><code>delete_draft</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="l3-notify">알림</h3>
+  <div class="flow">
+    <div class="st seal"><span class="k">④ DB 함수</span><b>상태 변경</b><span>같은 트랜잭션에서 <code>notifications</code> 행 추가</span></div>
+    <div class="ar">→</div>
+    <div class="st navy"><span class="k">② 서버</span><b>응답 먼저</b><span><code>after()</code>로 버튼 응답 뒤 발송</span></div>
+    <div class="ar">→</div>
+    <div class="st"><span class="k">발송</span><b>행 잡기</b><span><code>claimed_at</code> 기록, 중복 발송 방지</span></div>
+    <div class="ar">→</div>
+    <div class="st"><span class="k">Resend</span><b>메일</b><span>제목에 작성자·금액·목적. 실패하면 재시도, 3회면 실패</span></div>
+    <div class="ar">→</div>
+    <div class="st warn"><span class="k">실패 · 주소 없음</span><b>막힌 건 목록</b><span>"카톡이나 전화로 알려 주세요"</span></div>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>알림 종류</th><th>받는 사람</th><th>언제</th></tr></thead>
+    <tbody>
+      <tr><td><code>review_requested</code></td><td>다음 결재자</td><td>제출, 앞 단계 승인</td></tr>
+      <tr><td><code>you_approved</code></td><td>승인한 본인</td><td>승인 직후</td></tr>
+      <tr><td><code>approved_all</code></td><td>작성자</td><td>마지막 승인 (재정부로 넘어감)</td></tr>
+      <tr><td><code>finance_requested</code></td><td>처리 자격 있는 재정부원 전원</td><td>마지막 승인</td></tr>
+      <tr><td><code>changes_requested</code> · <code>documents_requested</code></td><td>작성자</td><td>보완 요청, 서류 보완 요청</td></tr>
+      <tr><td><code>documents_verified</code> · <code>check_issued</code> · <code>check_voided</code></td><td>작성자</td><td>재정 처리 단계마다</td></tr>
+      <tr><td><code>login_reset</code> · <code>email_changed</code></td><td>이전 메일 주소</td><td>다시 연결, 메일 변경</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================== L4 ============================== -->
+<section class="part" id="l4">
+  <div class="part-head"><div class="num"><span class="lv l4">L4</span></div><div><h2>코드와 함수</h2><div class="q">실제로 어떻게 동작하나</div></div></div>
+
+  <h3 id="l4-fn">DB 함수 목록</h3>
+  <p>공개 함수 60개는 화면과 서버가 부르는 API이고, 내부 함수 41개(<code>private.*</code>)는 공개 함수가 쓰는 도구입니다. 이름이 <code>_srv</code>로 끝나는 함수와 <code>bootstrap_first_admin</code>은 서버의 관리자 키로만 부를 수 있습니다.</p>
+  <div class="tw"><table>
+    <thead><tr><th>묶음</th><th>함수</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">작성</td><td><code>create_claim</code> <code>save_claim_draft</code> <code>preview_approval_line</code> <code>can_upload_receipt_srv</code> <code>add_attachment_srv</code> <code>remove_attachment</code> <code>submit_claim</code> <code>report_blocked_submit</code> <code>withdraw_claim</code> <code>start_revision</code> <code>cancel_own_claim</code> <code>delete_draft</code></td></tr>
+      <tr><td class="nw">결재</td><td><code>act_on_claim</code> <code>my_review_queue</code> <code>claim_print_steps</code></td></tr>
+      <tr><td class="nw">재정</td><td><code>receive_claim</code> <code>return_claim</code> <code>record_payment</code> <code>void_payment</code> <code>mark_check_cleared</code> <code>unmark_check_cleared</code> <code>finance_queue</code> <code>finance_payments</code> <code>finance_outstanding</code> <code>finance_export</code> <code>can_i_handle_finance</code> <code>me_finance</code></td></tr>
+      <tr><td class="nw">교인 · 초대</td><td><code>me</code> <code>update_my_profile</code> <code>invite_preview</code> <code>invite_open_srv</code> <code>accept_invite</code></td></tr>
+      <tr><td class="nw">관리</td><td><code>admin_create_person</code> <code>admin_update_person</code> <code>admin_create_invite</code> <code>admin_confirm_in_person</code> <code>admin_set_person_status</code> <code>admin_reactivate_person</code> <code>admin_relink_person</code> <code>admin_create_department</code> <code>admin_assign_position</code> <code>admin_end_position</code> <code>admin_reassign_current_step</code> <code>admin_cancel_claim</code> <code>admin_people</code> <code>admin_person_detail</code> <code>admin_author_waiting</code> <code>stuck_claims</code></td></tr>
+      <tr><td class="nw">권한</td><td><code>admin_grant</code> <code>admin_revoke</code> <code>admin_list_grants</code> <code>bootstrap_first_admin</code> (운영자가 처음 한 번)</td></tr>
+      <tr><td class="nw">매일 점검 (서버 전용)</td><td><code>claim_digest_run_srv</code> <code>finish_digest_run_srv</code> <code>release_digest_run_srv</code> <code>stuck_digest_srv</code> <code>admin_emails_srv</code> <code>finance_emails_srv</code> <code>old_checks_srv</code></td></tr>
+      <tr><td class="nw">옛 경로</td><td><code>add_attachment</code> (사용자 권한을 회수함. 영수증은 <code>add_attachment_srv</code>로만)</td></tr>
+      <tr><td class="nw">내부 도구 (일부)</td><td><code>private.current_member_id</code> <code>private.can_handle_finance</code> <code>private.claim_snapshot_hash</code> <code>private.notify</code> <code>private.is_stuck</code> <code>private.local_date</code> <code>private.normalize_check_no</code> <code>private.audit_row</code> <code>private.audit_immutable</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="l4-submit">제출 함수 · <code>submit_claim</code></h3>
+  <div class="tw"><table>
+    <thead><tr><th>확인 · 처리</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">입력 확인</td><td>목적, 사용일(미래 불가), 항목 합계 = 총액, 영수증 파일이 실제로 있는지</td></tr>
+      <tr><td class="nw">수취인 고정</td><td>프로필의 영문 이름(없으면 거부), 우편이면 주소를 청구에 고정 (D16)</td></tr>
+      <tr><td class="nw">결재선 만들기</td><td>부서의 현재 부장 → 담당 장로. 작성자 본인은 빼고, 한 명만 남으면 "결재자 1인" 표시. 장로가 없으면 제출을 막음 (A4, A6, A7)</td></tr>
+      <tr><td class="nw">문서번호</td><td>처음 제출할 때만 연도별로 발급 (예: 2026-0012). 다시 제출해도 그대로</td></tr>
+      <tr><td class="nw">표시</td><td>중복 의심(D34), 사용일에서 60일 넘은 늦은 제출, 관리자 1인 기간(<code>solo_admin_period</code>, 트리거)</td></tr>
+      <tr><td class="nw">알림</td><td>첫 결재자에게 결재 요청</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="l4-anatomy">승인 함수 해부 · <code>act_on_claim</code></h3>
+  <p>결재자가 <b>승인</b>을 누르면 이 함수 하나가 한 트랜잭션으로 아래를 모두 합니다. 하나라도 어긋나면 전부 취소되고 오류 코드가 화면 문구로 바뀝니다.</p>
+  <div class="tw"><table>
+    <thead><tr><th>#</th><th>하는 일</th><th>어긋나면 (오류 코드)</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>로그인한 사람이 사용 중인 교인인지 확인</td><td><code>not_member</code></td></tr>
+      <tr><td>2</td><td>청구서 행을 잠금 (<code>for update</code>) → 동시에 두 사람이 눌러도 한 명만 통과</td><td><code>not_found</code></td></tr>
+      <tr><td>3</td><td>상태가 결재 중이고 화면이 본 버전과 같은지</td><td><code>stale_or_closed</code> → "그 사이 내용이 바뀌었습니다"</td></tr>
+      <tr><td>4</td><td>작성자 본인이 아닌지</td><td><code>author_cannot_act</code></td></tr>
+      <tr><td>5</td><td>지금 열린 단계가 내 차례인지, 대면 확인이 끝난 결재자인지</td><td><code>no_open_step</code> · <code>not_your_turn</code> · <code>not_cleared</code></td></tr>
+      <tr><td>6</td><td>이번 회차에서 이미 다른 단계를 결재하지 않았는지</td><td><code>already_acted_on_claim</code></td></tr>
+      <tr><td>7</td><td>보완 요청이면 사유가 있는지</td><td><code>reason_required</code></td></tr>
+      <tr><td>8</td><td>단계에 결정·사유·시각·<b>내용 해시</b>·접속 정보 기록</td><td>—</td></tr>
+      <tr><td>9</td><td>다음 단계로 넘기거나 재정부 확인 대기로 바꾸고 버전 +1</td><td>—</td></tr>
+      <tr><td>10</td><td>알림 행 추가: 다음 결재자, 또는 마지막이면 작성자("결재 끝")와 처리 자격 있는 재정부원 전원, 그리고 승인자 본인. 재정 처리자가 한 명도 없으면 막힌 건으로 표시</td><td>—</td></tr>
+      <tr><td>11</td><td>감사 기록은 테이블 트리거가 따로 남김</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout"><b>내용 해시.</b> <code>private.claim_snapshot_hash</code>가 목적·사용일·합계·항목·영수증 해시·받는 방법·수취인 이름과 우편 주소를 묶어 sha256으로 만듭니다. 나중에 "내가 볼 때는 그 금액이 아니었다"는 다툼에 답합니다.</div>
+
+  <h3 id="l4-sec">보안 장치와 위치</h3>
+  <div class="tw"><table>
+    <thead><tr><th>막는 것</th><th>장치</th><th>위치</th></tr></thead>
+    <tbody>
+      <tr><td>남의 차례에 승인, 본인 청구 결재</td><td>차례·작성자·회차 확인, 행 잠금</td><td><code>act_on_claim</code></td></tr>
+      <tr><td>승인 뒤 내용 바꾸기</td><td>버전 번호, 승인 해시, 수취인 이름 고정(D16)</td><td>전이 함수, <code>approval_steps</code></td></tr>
+      <tr><td>API로 상태 직접 쓰기</td><td>쓰기는 함수로만, 읽기는 RLS, <code>search_path=''</code>, 내부 함수 권한 회수</td><td><code>src/supabase/migrations</code></td></tr>
+      <tr><td>관리자 키 유출</td><td>키를 읽는 곳은 한 곳, 서버 코드에서만 호출, 브라우저는 공개 키만</td><td><code>src/lib/server/admin.ts</code></td></tr>
+      <tr><td>가짜 영수증 형식</td><td>서버가 파일 바이트로 형식 확인, sha256 직접 계산, 4MB·20장 제한</td><td><code>file-type.ts</code>, <code>add_attachment_srv</code></td></tr>
+      <tr><td>로그인 코드 대입</td><td>IP별 제한(5분 30회), 재요청 1분</td><td>인증 서버 설정 (<code>docker-compose.church.yml</code>)</td></tr>
+      <tr><td>관리 화면·DB 노출</td><td>Tunnel 허용 목록, 모든 포트 127.0.0.1에만</td><td><code>src/ops/cloudflared/</code>, <code>docker-compose.church.yml</code></td></tr>
+      <tr><td>아무나 계정 만들기</td><td>초대 쿠키가 있을 때만 새 계정. 등록 여부 숨김</td><td><code>src/app/login/actions.ts</code></td></tr>
+      <tr><td>초대 링크 유출</td><td>해시 저장, httpOnly 쿠키, 7일, 1회용, 5회 잠금</td><td><code>src/app/invite/</code></td></tr>
+      <tr><td>로그인 뒤 엉뚱한 곳으로</td><td>돌아갈 주소를 같은 사이트 경로로만</td><td><code>src/lib/safe-next.ts</code></td></tr>
+      <tr><td>개발 환경이 운영 DB 사용</td><td><code>APP_ENV=production</code>이 아닌 환경이 운영 API 주소를 가리키면 멈춤</td><td><code>src/lib/prod-guard.ts</code></td></tr>
+      <tr><td>감사 기록 고치기</td><td>수정·삭제 금지 트리거</td><td><code>private.audit_immutable</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="l4-test">테스트</h3>
+  <div class="pyr" aria-label="테스트 구성">
+    <div class="e"><b>6</b>E2E · Playwright (Pixel 7)</div>
+    <div class="i"><b>8</b>통합 · 동시 제출·동시 승인·Storage</div>
+    <div class="u"><b>48</b>단위 · 금액·CSV·주소·파일 형식·운영 보호</div>
+    <div class="d"><b>143</b>DB · pgTAP (결재 규칙·권한·레드팀 회귀)</div>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>종류</th><th>명령</th><th>무엇을 지키나</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">DB</td><td class="nw"><code>npm run db:test</code></td><td>작성부터 지급까지, 작성자≠결재자≠지급자, RLS, 레드팀이 찾은 모든 구멍의 재발</td></tr>
+      <tr><td class="nw">단위</td><td><code>npm test</code></td><td>센트 계산, CSV 형식, 돌아갈 주소, 파일 서명, 운영 DB 보호, 메일 템플릿 사본 일치</td></tr>
+      <tr><td class="nw">통합</td><td><code>npm run test:int</code></td><td>DB 연결 두 개로 동시에 누르기, 제출 중 영수증 빼기</td></tr>
+      <tr><td class="nw">E2E</td><td><code>npm run test:e2e</code></td><td>작성·결재, 보완 요청, 재정·무효, 매일 점검, 관리자, 초대·다시 연결 (영수증 열람 포함)</td></tr>
+      <tr><td class="nw">CI</td><td>GitHub Actions</td><td>main push와 PR마다 린트·타입·단위 테스트·빌드(<code>check</code>), 로컬 Supabase를 띄운 pgTAP·통합 테스트(<code>database</code>). E2E는 CI에서 돌리지 않고 로컬·리허설에서 돌림</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="l4-ops">배포·백업 스크립트</h3>
+  <h4>배포 · <code>src/ops/bin/deploy.sh</code></h4>
+  <div class="flow">
+    <div class="st"><span class="k">1</span><b>확인</b><span>main에 있는 커밋, CI 성공</span></div>
+    <div class="ar">→</div>
+    <div class="st"><span class="k">2</span><b>새 폴더</b><span><code>releases/&lt;커밋&gt;-&lt;시각&gt;</code></span></div>
+    <div class="ar">→</div>
+    <div class="st"><span class="k">3</span><b>설치 · 빌드</b><span><code>npm ci</code> → <code>npm run build</code></span></div>
+    <div class="ar">→</div>
+    <div class="st seal"><span class="k">4</span><b>DB 마이그레이션</b><span><code>supabase db push</code> (확인 질문)</span></div>
+    <div class="ar">→</div>
+    <div class="st navy"><span class="k">5</span><b>전환 · 재시작</b><span><code>current</code> 링크, launchd</span></div>
+    <div class="ar">→</div>
+    <div class="st ok"><span class="k">6</span><b>상태 확인</b><span><code>/api/health</code> 200 → <code>.ok</code> 표시</span></div>
+  </div>
+  <p class="flow-note">6에서 실패하면 앱을 이전 배포본으로 자동으로 되돌립니다. DB 변경은 추가만 하므로 되돌리지 않습니다. 손으로 되돌릴 때는 <code>deploy.sh --rollback</code>. 최근 배포본 5개를 남깁니다.</p>
+
+  <h4>백업 · <code>backup-nightly.sh</code> → <code>src/scripts/backup.mjs</code></h4>
+  <div class="flow">
+    <div class="st"><span class="k">1</span><b>DB 덤프</b><span>스키마 + 데이터(public · private · auth · storage)</span></div>
+    <div class="ar">→</div>
+    <div class="st"><span class="k">2</span><b>영수증 전부</b><span>500개씩, 청구번호로 이름, sha256 대조. "없음" 외의 내려받기 오류는 전체 실패</span></div>
+    <div class="ar">→</div>
+    <div class="st warn"><span class="k">3</span><b>검사</b><span>누락·손상·개수 감소가 있으면 백업은 올리고 실패로 알림</span></div>
+    <div class="ar">→</div>
+    <div class="st seal"><span class="k">4</span><b>age 암호화</b><span>평문 삭제, 키는 서버에 없음</span></div>
+    <div class="ar">→</div>
+    <div class="st ok"><span class="k">5</span><b>Google Drive</b><span><code>daily/</code> 31일 · <code>monthly/</code> 7년</span></div>
+  </div>
+  <h4>복원 · <code>src/ops/bin/restore.sh</code></h4>
+  <ul>
+    <li>운영 서버, 비어 있지 않은 DB, Supabase 버전·배포본이 다른 경우 <b>거부</b></li>
+    <li>마이그레이션 적용 → 데이터를 <b>한 트랜잭션</b>으로 불러옴 → 영수증 다시 올림(해시 확인) → 건수 출력</li>
+  </ul>
+
+  <div class="tw"><table>
+    <thead><tr><th>파일</th><th>하는 일</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><code>ops/supabase/install.sh</code></td><td>공식 구성 받기(태그 고정), 고유 키 생성, 교회 설정 합치기, 권한 600</td></tr>
+      <tr><td class="nw"><code>ops/supabase/start.sh</code></td><td>설정 파일 권한·메일 비밀번호 확인 뒤 필요한 서비스 8개만 시작</td></tr>
+      <tr><td class="nw"><code>ops/supabase/docker-compose.church.yml</code></td><td>포트를 127.0.0.1로, 연결 풀러 포트 제거, 파일 5MB, IP별 제한, 카카오, 메일 템플릿</td></tr>
+      <tr><td class="nw"><code>ops/bin/common.sh</code></td><td>공통: 경로, <code>umask 077</code>, 설정 파일을 글자 그대로 읽기, 상태 알림</td></tr>
+      <tr><td class="nw"><code>ops/bin/run-app.sh</code></td><td>앱을 <code>127.0.0.1:3000</code>에서 실행</td></tr>
+      <tr><td class="nw"><code>ops/bin/cron-daily.sh</code></td><td>매일 점검 라우트 호출</td></tr>
+      <tr><td class="nw"><code>ops/launchd/*.plist</code></td><td>Colima·앱·점검·백업 시스템 서비스 4개</td></tr>
+      <tr><td class="nw"><code>ops/newsyslog/</code></td><td>로그 주간 순환, 8주 보관</td></tr>
+      <tr><td class="nw"><code>ops/cloudflared/config.yml.example</code></td><td>Tunnel 경로 허용 목록</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================== Status ============================== -->
+<section class="part" id="status">
+  <div class="part-head"><div class="num"><span class="lv l1" style="background:var(--ok)">S</span></div><div><h2>현재 상태와 남은 일</h2><div class="q">2026-11-23 기준</div></div></div>
+
+  <div class="ms">
+    <div><b>M0</b>기반 + 카카오 시험판</div>
+    <div><b>M1</b>DB 핵심 · 결재 함수</div>
+    <div><b>M2</b>작성 · 결재 화면</div>
+    <div><b>M3</b>재정 · 알림 · 문서</div>
+    <div class="now"><b>M4</b>시범 준비 (진행 중)</div>
+  </div>
+  <p class="flow-note">초록은 완료와 레드팀 반영, 주황은 진행 중입니다.</p>
+
+  <div class="cards">
+    <div class="card">
+      <h4>확인된 것</h4>
+      <ul class="check">
+        <li class="done">자동 테스트 4종 205건 통과 (CI는 DB·단위·빌드, E2E는 로컬·리허설)</li>
+        <li class="done">개발용 맥에서 운영 구성 리허설 2회</li>
+        <li class="done">배포 · 되돌리기 · 백업 · 전체 삭제 후 복원</li>
+        <li class="done">운영 빌드로 E2E 6건, 영수증 해시 일치</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>맥미니에서 할 것</h4>
+      <ul class="check">
+        <li>실제 설치와 부팅 시 자동 시작</li>
+        <li>FileVault 원격 잠금 해제, UPS, 전원 뽑기 시험</li>
+        <li>Cloudflare 도메인·Tunnel, 경로 차단 점검</li>
+        <li>Resend 메일 도착, 카카오 로그인, Drive 백업</li>
+        <li>휴대폰 실기기 점검표, 다른 맥에서 복원 연습</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>당회 확인이 필요한 것</h4>
+      <ul class="check">
+        <li>「전자결재 운영 규정」 결의 (버튼 승인 인정, 열람 범위)</li>
+        <li>교회 기록을 개인 소유 맥미니에 두는 것, 장애 허용 시간</li>
+        <li>FileVault를 켤지 끌지</li>
+        <li>두 번째 관리자 지명 (시범 30일 안)</li>
+        <li>장애 중 수표 금지, 전환 날짜</li>
+        <li>재정 처리 대체 규칙 (D13)</li>
+        <li>백업 보관 장소, 키 보관자, 7년 보관</li>
+        <li>발행자 본인 무효·결제 기록 허용</li>
+        <li>교회 시간대</li>
+      </ul>
+    </div>
+  </div>
+
+  <h4>시범 운영 계획</h4>
+  <div class="tw"><table>
+    <thead><tr><th>항목</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">범위</td><td>한국어 부서 한 곳과 영어권 부서(EM 등) 한 곳</td></tr>
+      <tr><td class="nw">시작 조건</td><td>맥미니 설치·점검 통과, 실기기 점검 통과, 운영 규정 당회 결의</td></tr>
+      <tr><td class="nw">운영 방식</td><td>시범 부서는 시스템이 정본. 영수증 원본은 문서번호를 적어 봉투로 냄. 부서마다 도우미 1명</td></tr>
+    </tbody>
+  </table></div>
+
+  <h4>남은 위험 (받아들이거나 미룬 것)</h4>
+  <div class="tw"><table>
+    <thead><tr><th>위험</th><th>현재 대응</th><th>다음</th></tr></thead>
+    <tbody>
+      <tr><td>로그인 계정 생성 남용 (메일 발송 한도 소진)</td><td>연결 전 계정은 권한 없음, 요청 제한, 메일 한도 감시</td><td>가입 전 인증 훅 (시범 중)</td></tr>
+      <tr><td>맥미니 한 대가 단일 장애점</td><td>UPS, 자동 재시작, 매일 교회 밖 백업</td><td>장애 시 종이로 받는 절차(D35)</td></tr>
+      <tr><td>정전 때 가상 디스크 손상</td><td>UPS, 매일 백업</td><td>맥미니에서 전원 뽑기 시험</td></tr>
+      <tr><td>개발 담당 1인 의존</td><td>절차서, 공용 계정, 사무실이 운영 담당</td><td>두 번째 기술 담당 찾기</td></tr>
+      <tr><td>로그인 코드 6자리</td><td>IP별 제한, 재요청 1분</td><td>필요하면 8자리</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================== Appendix ============================== -->
+<section class="part" id="appendix">
+  <div class="part-head"><div class="num"><span class="lv l1" style="background:var(--muted)">A</span></div><div><h2>부록</h2><div class="q">용어와 문서 지도</div></div></div>
+
+  <h3>용어</h3>
+  <div class="tw"><table>
+    <thead><tr><th>용어</th><th>뜻</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">결재 · 은행 결제</td><td>결재는 부장·장로의 승인. 은행 결제는 발행한 수표가 은행에서 빠져나간 것(<code>cleared</code>)</td></tr>
+      <tr><td class="nw">회차</td><td>제출할 때마다 1씩 늘어나는 결재 묶음. 보완 후 다시 제출하면 새 회차가 부장부터 시작</td></tr>
+      <tr><td class="nw">재정 처리 자격자</td><td>그 청구의 작성자도, 그 회차 결재자도 아닌 재정부원. 없으면 재정 담당 장로(D13)</td></tr>
+      <tr><td class="nw">결재자 1인</td><td>작성자를 빼고 결재자가 한 명뿐인 청구. 재정·감사 화면에 표시</td></tr>
+      <tr><td class="nw">막힌 건</td><td>결재 8일·재정 10일을 넘었거나, 결재자 없음·메일 실패·재정 처리자 없음인 청구</td></tr>
+      <tr><td class="nw">RLS</td><td>Row Level Security. DB가 행마다 "이 사람이 읽어도 되나"를 판단</td></tr>
+      <tr><td class="nw">RPC</td><td>화면 서버가 DB 함수를 이름으로 부르는 방식</td></tr>
+      <tr><td class="nw">service role</td><td>RLS를 건너뛰는 관리자 키. 서버 한 곳에서만 씀</td></tr>
+      <tr><td class="nw">Tunnel</td><td>맥미니가 Cloudflare로 바깥 연결을 열어, 공유기 포트 없이 외부 접속을 받는 방식</td></tr>
+      <tr><td class="nw">age</td><td>백업 파일 암호화 도구. 공개 키로 잠그고, 개인 키는 서버 밖에 둠</td></tr>
+      <tr><td class="nw">pgTAP</td><td>Postgres 안에서 돌리는 테스트 도구</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>문서 지도</h3>
+  <div class="tw"><table>
+    <thead><tr><th>문서</th><th>내용</th><th>독자</th></tr></thead>
+    <tbody>
+      <tr><td class="nw"><a href="design.html">design.html</a></td><td>설계 기준 문서: 규칙, 상태 전이, 화면, 내부 통제, 데이터 모델</td><td>모두</td></tr>
+      <tr><td class="nw"><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/decisions.md">decisions.md</a></td><td>업무 규칙 A1~A9, U1~U3, 구현 결정 D1~D48</td><td>당회 · 개발</td></tr>
+      <tr><td class="nw"><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/milestones.md">milestones.md</a></td><td>M0~M4 진행과 테스트 건수</td><td>개발</td></tr>
+      <tr><td class="nw"><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/operations.md">operations.md</a></td><td>운영 절차서: 사무실 업무, 장애 대응, 비밀값 목록</td><td>사무실 · 기술 담당</td></tr>
+      <tr><td class="nw"><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/deploy.md">deploy.md</a></td><td>맥미니 설치·배포·백업·복원 절차와 점검</td><td>기술 담당</td></tr>
+      <tr><td class="nw"><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/device-checklist.md">device-checklist.md</a></td><td>휴대폰 실기기 점검표</td><td>시험 담당</td></tr>
+      <tr><td class="nw"><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/kakao-trial.md">kakao-trial.md</a></td><td>카카오 로그인 시험 절차</td><td>기술 담당</td></tr>
+      <tr><td class="nw"><a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/setup.md">setup.md</a></td><td>개발 환경 준비</td><td>개발</td></tr>
+      <tr><td class="nw"><a href="https://github.com/dennis2lee/epc-hub/tree/main/doc/reviews"><code>reviews/</code></a></td><td>Fable 자문과 레드팀 기록 (M1~M4, 맥미니 운영, 리허설)</td><td>개발 · 감사</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="foot">이 보고서는 공개 저장소의 코드와 문서를 읽고 정리한 요약입니다. 보안은 설계를 숨기는 데 기대지 않으며, 비밀값은 저장소에 없습니다. 규칙과 결정이 이 문서와 다르면 <a href="design.html">design.html</a>과 <a href="https://github.com/dennis2lee/epc-hub/blob/main/doc/decisions.md">decisions.md</a>가 기준입니다. 화면 예시의 이름은 가명입니다.</div>
+</section>
+
+</main>
+</div>
+</body>
+</html>
