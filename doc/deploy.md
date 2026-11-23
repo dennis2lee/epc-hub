@@ -2,8 +2,6 @@
 
 운영 서버는 교회 IT실에 두는 **교회 소유** 전용 맥미니 한 대다(D41~D47, D49). 24시간 켜져 있다. 화면(Next.js)과 Supabase(공식 self-hosted Docker 구성)가 같은 기기에서 돈다. 교인은 Cloudflare Tunnel을 거쳐서만 접속한다. 아래 절차는 기술 담당이 맥미니 앞에서 직접 한다. 비밀값은 문서·채팅·메일에 옮기지 않는다.
 
-이 절차는 2026-11-22 개발용 MacBook Air에서 두 번 리허설했다. 설치, 배포 스크립트, 운영 빌드 화면 테스트, 백업, 전부 삭제 뒤 복원, 되돌리기를 거쳤다. 결과는 `doc/reviews/2026-11-22-mac-mini-rehearsal.md`에 있다.
-
 ## 0. 구성
 
 ```
@@ -45,13 +43,13 @@ Next.js 서버 → Supabase: 맥 안에서 127.0.0.1:8000으로 직접 (외부�
 | Cloudflare | `tech-media@kepc.org`로 가입. `epcsj-hub.org`를 Cloudflare Registrar에서 등록한다(DNS 자동 연결) |
 | Resend | 같은 주소로 가입. 도메인 `notify.epcsj-hub.org` 추가. API 키를 **두 개** 만든다: 로그인 코드용(Supabase), 알림용(앱). 하나가 막혀도 다른 쪽은 돈다 |
 | 카카오 개발자 | 교회 공용 카카오 계정. `doc/kakao-trial.md` 1~5단계 |
-| Google Drive | `tech-media@kepc.org`의 Drive에 `epc-hub-backup` 폴더(가능하면 공유 드라이브) |
+| Google Drive | `tech-media@kepc.org`의 Drive(교회 Workspace, 100 TB)에 `epc-hub-backup` 폴더(가능하면 공유 드라이브) |
 | age 키 한 쌍 | 맥미니가 **아닌** 컴퓨터에서 만든다. 개인 키는 USB 두 개(기술 담당용, 당회 서기 봉투용)에 둔다. 맥미니에는 공개 키만 둔다 |
 | healthchecks.io (강력 권장) | 무료. 검사 3개를 만든다: 앱 상태, 매일 점검, 백업. 멈추면 `tech-media@kepc.org`로 알림. 맥미니 전체가 꺼져도 알 수 있는 유일한 장치다 |
 
 ## 1-1. 맥미니 사양과 설치 장소 (D49)
 
-자문 기록: `doc/reviews/2026-11-23-mac-mini-spec-consult.md`. 가격은 대략값이며 구매 전에 다시 확인한다.
+가격은 대략값이며 구매 전에 다시 확인한다.
 
 | 등급 | 칩 | 메모리 | 내장 SSD | 대략 가격 | 메모 |
 |---|---|---|---|---|---|
@@ -62,6 +60,7 @@ Next.js 서버 → Supabase: 맥 안에서 127.0.0.1:8000으로 직접 (외부�
 
 - 메모리와 SSD는 사고 나서 늘릴 수 없다.
 - 백업하는 동안 디스크는 영수증 용량의 약 6~7배를 쓴다(평문 모음, tar, 암호화본, 로컬 보관 3개). 백업을 증분 방식으로 바꾸는 일이 남아 있다(D49).
+- 교회 Google Drive는 100 TB라 보관 용량은 제약이 아니다. 제약은 맥미니 디스크와 교회 인터넷의 업로드 속도다.
 
 | 설치 환경 | 할 일 |
 |---|---|
@@ -97,7 +96,7 @@ sudo pmset repeat wakeorpoweron MTWRFSU 06:00:00
    - 서비스는 시스템 서비스(LaunchDaemon)로 등록하므로, 잠금만 풀리면 아무도 로그인하지 않아도 모두 다시 뜬다.
    - 계획된 재시작(업데이트)은 `sudo fdesetup authrestart`로 한다. 잠금 해제 없이 한 번 다시 켜진다.
    - 정전 뒤 재시작: 같은 네트워크의 다른 기기에서 SSH로 잠금을 풀거나(macOS 원격 잠금 해제), 맥미니 앞에서 잠금을 푼다.
-   - 무인 복구를 위해 FileVault를 끄는 것은 **당회 결정 사항**이다(`doc/reviews/2026-11-22-mac-hosting-consult.md`).
+   - 무인 복구를 위해 FileVault를 끄는 것은 **당회 결정 사항**이다.
 4. 시스템 설정 → 일반 → 공유: 원격 로그인(SSH)을 관리자에게만 켠다. 화면 공유는 필요할 때만 켠다.
 5. 방화벽을 켠다. 자동 업데이트는 "보안 응답과 시스템 파일"만 자동으로 두고, macOS 업데이트는 매월 한 번 손으로 한다(9장).
 6. 원격 관리용으로 Tailscale을 설치하고 기술 담당 기기만 초대한다. Tailscale 계정은 `tech-media@kepc.org` 소유로 만든다. SSH는 사람마다 다른 키로 접속한다. 공유기 포트는 열지 않는다.
@@ -118,7 +117,7 @@ colima start --cpu 4 --memory 8 --disk 60 && colima stop
 - DB와 영수증은 `~/church/supabase/volumes/`(맥 디스크)에 쌓이는지 설치 뒤 확인한다. VM 디스크 60 GB에는 이미지만 들어가야 한다. Colima 디스크는 늘릴 수만 있다.
 
 - `node@24`는 Homebrew에서 별도 경로(`/opt/homebrew/opt/node@24/bin`)에 설치된다. 운영 스크립트가 그 경로를 먼저 쓴다.
-- Colima는 홈 폴더 아래만 컨테이너에 연결한다. 운영 파일은 모두 `~/church` 아래에 둔다(리허설에서 임시 폴더를 쓰다 실패한 적이 있다).
+- Colima는 홈 폴더 아래만 컨테이너에 연결한다. 운영 파일은 모두 `~/church` 아래에 둔다(임시 폴더는 컨테이너에서 보이지 않는다).
 
 ```bash
 mkdir -p ~/church/logs ~/church/releases && git clone https://github.com/dennis2lee/epc-hub.git ~/church/repo
@@ -357,7 +356,7 @@ sh ~/church/repo/src/ops/bin/deploy.sh
   - DB 마이그레이션은 되돌리지 않는다. 마이그레이션은 기존 앱이 계속 돌 수 있게 **추가만** 하고(D8), 고칠 일이 있으면 고치는 마이그레이션을 새로 추가한다.
 - **macOS:** 매월 한 번, 주일과 월초 지급일을 피해 저녁에 한다. 업데이트 → `sudo fdesetup authrestart` → 8장 첫 확인.
 - **Supabase:** 분기에 한 번, 또는 보안 공지가 있을 때 한다.
-  1. 개발용 맥에서 먼저 리허설한다. `install.sh`의 고정 버전을 올려 설치하고 테스트한다.
+  1. 개발용 맥에서 먼저 시험한다. `install.sh`의 고정 버전을 올려 설치하고 테스트한다.
   2. 맥미니에서 백업 → 공식 `update.sh` → `start.sh`(쓰지 않는 서비스는 켜지 않는다) → 8장 확인.
   3. 고정 버전을 올렸으면 `install.sh`의 `SUPABASE_REF`도 고쳐 커밋한다. 백업에는 Supabase 버전이 기록되고, 복원은 같은 버전에서만 된다.
 - **기록:** 무엇을 언제 바꿨는지 `doc/operations.md`의 변경 기록에 적는다.

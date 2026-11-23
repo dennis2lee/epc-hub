@@ -19,7 +19,7 @@
 | `src/supabase` | DB 마이그레이션, pgTAP 테스트, 시드 데이터 (Supabase CLI는 `--workdir src`로 실행) |
 | `src/ops` | 운영 맥미니용 설치·배포·백업·복원 스크립트, launchd, Cloudflare Tunnel 설정 (`doc/deploy.md`) |
 | `src/scripts` | 로컬 환경 파일 생성, 백업·영수증 복원 스크립트 |
-| `doc` | 한국어 문서, 설계서, 레드팀 검토 기록 |
+| `doc` | 한국어 문서: 구조 보고서, 설계서, 결정 기록, 운영·배포 절차 |
 | `build` | 빌드·테스트 산출물. 커밋하지 않는다 |
 
 ## 빠른 시작

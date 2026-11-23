@@ -131,4 +131,4 @@
 - 2026년 11월 현재의 맥미니 가격과 구성.
 - 이 기기에서 SSH로 FileVault 잠금이 실제로 풀리는지(리허설 항목).
 - DB·영수증의 실제 저장 위치(설치 때 확인).
-- 교회 Google Workspace의 Drive 용량 한도.
+- 교회 Google Workspace의 Drive 용량 한도. (사용자 확인: 100 TB. Drive 보관 용량은 제약이 아니다)
