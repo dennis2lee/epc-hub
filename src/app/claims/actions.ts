@@ -30,11 +30,11 @@ const ipValue = z.union([z.ipv4(), z.ipv6()]);
 
 async function clientInfo() {
   const h = await headers();
-  // Vercel sets x-real-ip / x-vercel-forwarded-for itself; x-forwarded-for may
-  // carry values added by the caller, so it is the last resort.
+  // The server listens only on 127.0.0.1 behind Cloudflare Tunnel (D43), and
+  // Cloudflare overwrites cf-connecting-ip with the real client address.
+  // x-forwarded-for may carry values added by the caller, so it is the last resort.
   const candidates: [string, string | undefined][] = [
-    ["x-vercel-forwarded-for", h.get("x-vercel-forwarded-for")?.split(",")[0]?.trim()],
-    ["x-real-ip", h.get("x-real-ip")?.trim()],
+    ["cf-connecting-ip", h.get("cf-connecting-ip")?.trim()],
     ["x-forwarded-for", h.get("x-forwarded-for")?.split(",")[0]?.trim()],
   ];
   const found = candidates.find(([, v]) => v && ipValue.safeParse(v).success);

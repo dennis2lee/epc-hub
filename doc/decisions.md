@@ -83,4 +83,17 @@ M4 레드팀 결과(`doc/reviews/2026-11-22-m4-redteam.md`)를 받아 Fable 자�
 
 | # | 결정 | 이유 |
 |---|---|---|
-| D40 | 운영 구성은 Vercel + Supabase + Resend + 카카오로 확정한다. 교회 맥미니를 운영 서버로 쓰는 안은 택하지 않는다(맥미니는 주간 백업 보관소 후보, D36). AWS 단일 구성(Amplify·RDS·Cognito 등)과 Cloudflare 단일 구성(Workers·D1·R2)도 택하지 않는다. 앱 주소는 `claims.epcsj.org`(운영)와 `preview.epcsj.org`(미리보기), 메일 발송 도메인은 `notify.epcsj.org`다. 계정 소유 메일은 교회 Google Workspace의 기술 담당 공용 주소로 한다 | 결재 규칙(DB 함수·RLS·로그인)이 Supabase/PostgreSQL 위에 있어 옮기면 M1~M4를 다시 만들어야 한다. Cloudflare D1은 PostgreSQL이 아니다. AWS는 관리 부담이 자원봉사 기술 담당에게 크다. 맥미니는 정전·인터넷 장애·관리 인력·같은 건물 백업 문제가 있다. 메일은 하위 도메인으로 보내 교회의 기존 Google 메일 설정을 건드리지 않는다 |
+| D40 | **(D41~D46으로 대체됨. Resend·카카오는 유지)** 운영 구성은 Vercel + Supabase + Resend + 카카오로 확정한다. 교회 맥미니를 운영 서버로 쓰는 안은 택하지 않는다(맥미니는 주간 백업 보관소 후보, D36). AWS 단일 구성(Amplify·RDS·Cognito 등)과 Cloudflare 단일 구성(Workers·D1·R2)도 택하지 않는다. 앱 주소는 `claims.epcsj.org`(운영)와 `preview.epcsj.org`(미리보기), 메일 발송 도메인은 `notify.epcsj.org`다. 계정 소유 메일은 교회 Google Workspace의 기술 담당 공용 주소로 한다 | 결재 규칙(DB 함수·RLS·로그인)이 Supabase/PostgreSQL 위에 있어 옮기면 M1~M4를 다시 만들어야 한다. Cloudflare D1은 PostgreSQL이 아니다. AWS는 관리 부담이 자원봉사 기술 담당에게 크다. 맥미니는 정전·인터넷 장애·관리 인력·같은 건물 백업 문제가 있다. 메일은 하위 도메인으로 보내 교회의 기존 Google 메일 설정을 건드리지 않는다 |
+
+## 운영 서버를 맥미니로 변경 (2026-11-22, 사용자 결정)
+
+Fable 자문(`doc/reviews/2026-11-22-mac-hosting-consult.md`)은 클라우드 유지를 권했다. 사용자가 비용과 데이터 보관 위치를 고려해 아래로 정했다. D40의 Vercel·Supabase Cloud 부분을 대체한다.
+
+| # | 결정 | 이유·조건 |
+|---|---|---|
+| D41 | 운영 서버는 개발 담당의 **전용 맥미니**로 한다. 화면(Next.js `next start`)과 Supabase(공식 self-hosted Docker 구성, 버전 고정)가 같은 기기에서 돈다. 외부 접속은 Cloudflare Tunnel로만 하고 공유기 포트는 열지 않는다. Vercel과 Supabase Cloud는 쓰지 않는다. 클라우드 미리보기 환경은 없고, 시험은 개발용 맥의 로컬 스택에서 한다 | 매달 비용이 없고 데이터가 교회가 아는 기기 안에 있다. 조건: 맥미니는 이 용도 전용(개인 사용·다른 서비스 금지), 유선 인터넷, 기존 UPS 연결, 정전 뒤 자동 켜짐, 잠자기 끔. **당회 확인**: 교회 기록을 개인 소유 기기에 두는 것, 장애 허용 시간(D35와 연결) |
+| D42 | 새 도메인 `epcsj-hub.org`를 Cloudflare에서 등록하고 DNS도 Cloudflare에 둔다. 화면은 `www.epcsj-hub.org`(루트는 www로 보냄), API는 `api.epcsj-hub.org`, 알림·로그인 코드 메일은 `notify.epcsj-hub.org`(Resend). 기존 `epcsj.org`(Squarespace·Google 메일)는 건드리지 않는다. 교회 홈페이지에 새 주소 링크를 걸어 교인이 진짜 주소임을 알 수 있게 한다 | `epcsj.org` DNS를 옮기면 홈페이지·메일이 멈출 위험이 있다. Cloudflare Tunnel은 도메인 DNS가 Cloudflare에 있어야 무료로 쓸 수 있다 |
+| D43 | API 주소에는 인증·데이터·파일 경로(`/auth/v1/`, `/rest/v1/`, `/storage/v1/`)만 Tunnel로 연다. Supabase 관리 화면(Studio), DB 관리 API, Postgres는 외부에 열지 않고 맥미니 안(127.0.0.1)에서만 쓴다. 개발용 `supabase start` 스택은 키가 공개된 기본값이라 운영에 쓰지 않는다. 운영 비밀값은 맥미니의 권한 600 파일에만 둔다 | 공식 구성은 기본 설정이 운영용으로 안전하지 않다고 명시한다 |
+| D44 | 백업은 매일 밤 맥미니가 자동으로 한다(launchd). DB 덤프와 영수증 전부를 age로 암호화해 교회 Google Workspace(`kepc.org`) 기술 담당 계정의 Google Drive에 rclone으로 올린다. 매일 30개, 매월 1일 것은 7년 보관. 복호화 키는 기술 담당과 당회 서기가 나눠 갖는다. 시범 전 복원 연습 1회, 이후 분기 1회. D36(주간 수동)을 대체한다 | 클라우드 일일 백업이 없어졌으므로 매일 교회 밖 사본이 필요하다. 암호화했으므로 Google도 내용을 볼 수 없다 |
+| D45 | 계정 소유 메일은 `tech-media@kepc.org`(교회 Google Workspace)로 한다. Cloudflare, Resend, 카카오 개발자, Google Drive 백업 폴더가 이 주소에 묶인다. 기술 담당 두 명이 받을 수 있는 그룹 주소로 둔다 | 개인 계정에 교회 자산이 묶이지 않게 한다(`doc/operations.md` 8장) |
+| D46 | 미리보기 보호(D38)는 Vercel 변수 대신 `APP_ENV`로 한다. 운영 맥미니만 `APP_ENV=production`이고, 그 밖의 환경이 운영 API 주소(`PROD_SUPABASE_HOST`)를 가리키면 멈춘다. 매일 점검 Cron은 launchd가 부른다 | Vercel이 없어졌다 |

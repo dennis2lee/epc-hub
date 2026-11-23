@@ -6,26 +6,26 @@
 
 시험판을 실기기로 돌리려면 휴대폰에서 열 수 있는 HTTPS 주소가 필요하다. 계정 만들기와 결제는 개발 담당이 직접 한다.
 
-1. **Supabase 클라우드 프로젝트**: 미국 리전, 교회 공용 계정 소유. 마이그레이션 적용은 `npx supabase link --workdir src` 후 `npx supabase db push --workdir src`.
-2. **Vercel 프로젝트**: 이 저장소 연결, 환경 변수는 `.env.example` 참고. 미리보기 배포는 운영 DB가 아닌 시험용 Supabase를 가리키게 한다.
+1. **서버**: 운영 맥미니(`doc/deploy.md` 2~6장)를 시범 운영 전에 먼저 세우고 그 위에서 시험한다. 별도 미리보기 서버는 없다(D41).
+2. **시험 기간**: 첫 실제 청구를 받기 전에만 한다. 시험 계정과 시험 파일은 시험이 끝나면 지운다.
 3. **카카오 개발자 앱** (https://developers.kakao.com):
    - 앱 만들기 → 앱 키의 REST API 키를 `KAKAO_REST_API_KEY`에 넣는다.
    - 카카오 로그인 활성화, OpenID Connect 활성화(방식 2에 필요).
    - Redirect URI 등록:
-     - 방식 2: `https://<배포 주소>/auth/kakao/callback`
-     - 방식 1: `https://<Supabase 프로젝트>.supabase.co/auth/v1/callback`
+     - 방식 2: `https://www.epcsj-hub.org/auth/kakao/callback`
+     - 방식 1: `https://api.epcsj-hub.org/auth/v1/callback`
    - 동의항목: 닉네임(필수)만 켠다. 이메일은 비즈 앱 전용이라 쓰지 않는다.
    - 보안 → Client Secret을 켰다면 `KAKAO_CLIENT_SECRET`에 넣는다.
-   - 플랫폼 → Web 사이트 도메인에 배포 주소를 넣는다.
-4. **Supabase 대시보드** (방식 1·2 모두 필요): Authentication → Providers → Kakao 켜기, Client ID에 REST API 키, Client Secret 입력, "Allow users without an email" 켜기. 방식 2(운영 버튼)도 이 공급자 설정으로 id_token을 확인한다. 로그인 화면에 방식 1 버튼을 보이려면 환경변수 `NEXT_PUBLIC_KAKAO_OPTION1=1`을 넣는다(평소에는 숨김).
+   - 플랫폼 → Web 사이트 도메인에 `https://www.epcsj-hub.org`를 넣는다.
+4. **Supabase 카카오 공급자** (방식 1·2 모두 필요): 맥미니의 `~/church/supabase/.env`에 `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`을 넣는다. 이메일 없는 사용자 허용은 `src/ops/supabase/docker-compose.church.yml`에 이미 켜져 있다. 방식 2(운영 버튼)도 이 공급자 설정으로 id_token을 확인한다. 로그인 화면에 방식 1 버튼을 보이려면 환경변수 `NEXT_PUBLIC_KAKAO_OPTION1=1`을 넣는다(평소에는 숨김).
 5. **이메일 발송**: Authentication → SMTP에 메일 서비스(예: Resend)를 넣고, Email Templates의 Magic Link와 Confirm signup을 `src/supabase/templates/otp.html` 내용(`{{ .Token }}` 6자리 코드)으로 바꾼다.
 
-6. **시험 화면과 시험 버킷** (미리보기 프로젝트에만): Vercel 미리보기 환경변수에 `TRIAL_PAGES=1`을 넣는다(없으면 `/trial`이 404). 미리보기 Supabase의 SQL 편집기에서 `src/supabase/seeds/trial_bucket.sql`을 실행한다. 운영 프로젝트에는 둘 다 넣지 않는다(D37). 시험이 끝나면 환경변수를 지우고 버킷과 정책을 삭제한다.
-7. **미리보기 주소**: 배포마다 바뀌는 주소 말고 고정 주소(`preview.epcsj.org`)를 쓴다. 카카오 Redirect URI와 Supabase Redirect URLs에 이 주소를 넣고, Vercel Deployment Protection을 시험 기간에만 끈다(`doc/deploy.md` 2장).
+6. **시험 화면과 시험 버킷** (시험 기간에만): `~/church/app.env`에 `TRIAL_PAGES=1`(필요하면 `NEXT_PUBLIC_KAKAO_OPTION1=1`)을 넣고 다시 배포한다. 맥미니 Studio(`http://127.0.0.1:8000`) SQL Editor에서 `src/supabase/seeds/trial_bucket.sql`을 실행한다. 시험이 끝나면 두 변수를 지우고 다시 배포한 뒤, `trial` 버킷과 정책을 삭제한다(D37). 삭제한 날짜를 `doc/operations.md` 변경 기록에 적는다.
+7. **주소**: 시험 링크는 `https://www.epcsj-hub.org/trial`이다.
 
 ## 2. 시험 방법
 
-1. 시험할 사람에게 `https://<배포 주소>/trial` 링크를 카카오톡으로 보낸다.
+1. 시험할 사람에게 `https://www.epcsj-hub.org/trial` 링크를 카카오톡으로 보낸다.
 2. 받은 사람이 카톡 안에서 링크를 열고 화면 위에서부터 차례로 누른다.
 3. 마지막 "결과 복사하기"를 눌러 결과를 개발 담당에게 카톡으로 보낸다.
 

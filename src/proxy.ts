@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { assertNotProdFromPreview } from "@/lib/prod-guard";
+import { authCookieName } from "@/lib/env";
 
 /**
  * Refresh the Supabase session cookie on every page request. This is only a
@@ -18,7 +19,9 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  const supabase = createServerClient(url, key, {
+  // Server-side calls go to the local gateway on the Mac mini (D43).
+  const supabase = createServerClient(process.env.SUPABASE_INTERNAL_URL || url, key, {
+    cookieOptions: { name: authCookieName() },
     cookies: {
       getAll() {
         return request.cookies.getAll();

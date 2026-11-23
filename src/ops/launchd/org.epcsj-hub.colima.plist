@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- System service (LaunchDaemon) run as the "church" user, so it starts at
+     boot without anyone logging in, including after a FileVault unlock over
+     SSH. Installed by doc/deploy.md 6장 with __HOME__ and __USER__ replaced. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>org.epcsj-hub.colima</string>
+  <key>UserName</key><string>__USER__</string>
+  <key>GroupName</key><string>staff</string>
+  <key>Umask</key><integer>63</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key><string>__HOME__</string>
+    <key>PATH</key><string>/opt/homebrew/opt/node@24/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>ProgramArguments</key>
+  <array><string>/opt/homebrew/bin/colima</string><string>start</string><string>--foreground</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
+  <key>StandardOutPath</key><string>__HOME__/church/logs/colima.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/church/logs/colima.err.log</string>
+</dict>
+</plist>

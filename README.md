@@ -15,6 +15,8 @@
 | `src/app` | Next.js 화면과 라우트 |
 | `src/lib` | 서버·클라이언트 공용 코드 (Supabase 클라이언트, 금액, 시간대, 문구) |
 | `src/supabase` | DB 마이그레이션, pgTAP 테스트, 시드 데이터 (Supabase CLI는 `--workdir src`로 실행) |
+| `src/ops` | 운영 맥미니용 설치·배포·백업·복원 스크립트, launchd, Cloudflare Tunnel 설정 (`doc/deploy.md`) |
+| `src/scripts` | 로컬 환경 파일 생성, 백업·영수증 복원 스크립트 |
 | `doc` | 한국어 문서, 설계서, 레드팀 검토 기록 |
 | `build` | 빌드·테스트 산출물. 커밋하지 않는다 |
 

@@ -6,7 +6,7 @@ import { dispatchAllPending, sendEmail } from "@/lib/server/notify";
 import { centsToPlain } from "@/lib/money";
 import { churchDate } from "@/lib/time";
 
-// Daily job (Vercel Cron, see vercel.json): retry pending emails, then send the
+// Daily job (launchd on the Mac mini, src/ops/launchd/org.epcsj-hub.cron.plist): retry pending emails, then send the
 // office and finance a digest. Authenticated with CRON_SECRET. The digest goes
 // out at most once per church-local day even if the cron fires twice.
 export const maxDuration = 60;

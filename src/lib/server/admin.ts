@@ -12,7 +12,7 @@ import { assertNotProdFromPreview } from "@/lib/prod-guard";
  */
 export function createServiceClient() {
   assertNotProdFromPreview(publicEnv.supabaseUrl);
-  return createSupabaseClient<Database>(publicEnv.supabaseUrl, serverEnv.supabaseSecretKey, {
+  return createSupabaseClient<Database>(publicEnv.supabaseServerUrl, serverEnv.supabaseSecretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }

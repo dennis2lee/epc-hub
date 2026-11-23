@@ -1,0 +1,57 @@
+# Church overrides for the official self-hosted Supabase compose
+# (pinned in install.sh). Layered via COMPOSE_FILE in .env.
+#
+# - Nothing listens on a public interface: the API gateway and Postgres are
+#   bound to 127.0.0.1; Cloudflare Tunnel reaches the gateway locally (D43).
+#   The pooler (unused) publishes no ports even if someone runs a bare
+#   `docker compose up`.
+# - Auth settings that the cloud dashboard used to hold (doc/deploy.md).
+services:
+  api-gw:
+    ports: !override
+      - "127.0.0.1:${API_GW_HTTP_PORT:-8000}:8000/tcp"
+
+  db:
+    # Local-only port for migrations (supabase db push) and nightly dumps.
+    ports:
+      - "127.0.0.1:${CHURCH_DB_PORT:-54329}:5432"
+
+  supavisor:
+    ports: !reset []
+
+  storage:
+    environment:
+      # Receipts are at most 4 MB after shrinking (app limit 4.5 MB).
+      FILE_SIZE_LIMIT: "5242880"
+
+  auth:
+    extra_hosts:
+      # Lets Auth fetch the email template from the app on the Mac's loopback
+      # without going out through Cloudflare.
+      - "host.docker.internal:host-gateway"
+    environment:
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_MAILER_OTP_EXP: "600"
+      GOTRUE_MAILER_OTP_LENGTH: "6"
+      GOTRUE_SMTP_MAX_FREQUENCY: "60s"
+      GOTRUE_RATE_LIMIT_EMAIL_SENT: "${CHURCH_EMAIL_PER_HOUR:-100}"
+      # Per-client limits (login-code guessing, code requests). Cloudflare
+      # overwrites CF-Connecting-IP, and only the tunnel reaches the gateway,
+      # so callers cannot forge it. Requests from the Mac itself carry no such
+      # header and are not limited.
+      GOTRUE_RATE_LIMIT_HEADER: "CF-Connecting-IP"
+      GOTRUE_RATE_LIMIT_VERIFY: "30"
+      GOTRUE_RATE_LIMIT_OTP: "30"
+      GOTRUE_RATE_LIMIT_TOKEN_REFRESH: "150"
+      GOTRUE_SECURITY_SB_FORWARDED_FOR_ENABLED: "false"
+      GOTRUE_MAILER_SUBJECTS_MAGIC_LINK: "교회 지출청구 로그인 코드"
+      GOTRUE_MAILER_SUBJECTS_CONFIRMATION: "교회 지출청구 로그인 코드"
+      GOTRUE_MAILER_TEMPLATES_MAGIC_LINK: "http://host.docker.internal:3000/auth-templates/otp.html"
+      GOTRUE_MAILER_TEMPLATES_CONFIRMATION: "http://host.docker.internal:3000/auth-templates/otp.html"
+      GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED: "true"
+      # Kakao (both sign-in options use this provider; no email scope).
+      GOTRUE_EXTERNAL_KAKAO_ENABLED: "${KAKAO_ENABLED:-false}"
+      GOTRUE_EXTERNAL_KAKAO_CLIENT_ID: "${KAKAO_REST_API_KEY:-}"
+      GOTRUE_EXTERNAL_KAKAO_SECRET: "${KAKAO_CLIENT_SECRET:-}"
+      GOTRUE_EXTERNAL_KAKAO_REDIRECT_URI: "${API_EXTERNAL_URL}/callback"
+      GOTRUE_EXTERNAL_KAKAO_EMAIL_OPTIONAL: "true"

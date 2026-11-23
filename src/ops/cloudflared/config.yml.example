@@ -1,0 +1,38 @@
+# Cloudflare Tunnel for the church Mac mini (D42, D43, D47).
+# Install as /etc/cloudflared/config.yml (the system service reads it from
+# there) with the credentials file next to it. Rules are checked top to bottom.
+#
+# The API host is an allow-list of exactly what browsers need. Server code
+# reaches Supabase on 127.0.0.1 and never comes through here.
+tunnel: <TUNNEL_ID>
+credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  # The app.
+  - hostname: www.epcsj-hub.org
+    service: http://127.0.0.1:3000
+
+  # Refuse dot segments, doubled slashes and encoded slashes/dots before any
+  # allow rule: the gateway normalizes paths, so "/auth/v1/../../" would
+  # otherwise reach the Studio console behind it.
+  - hostname: api.epcsj-hub.org
+    path: (\.\.|//|%2[eEfF]|%5[cC]|\\)
+    service: http_status:404
+
+  # Sign-in from the browser: request and verify a login code, refresh the
+  # session, Kakao option 1 (authorize/callback).
+  - hostname: api.epcsj-hub.org
+    path: ^/auth/v1/(otp|verify|token|user|authorize|callback)$
+    service: http://127.0.0.1:8000
+
+  # Opening a receipt: the app redirects to a 60-second signed URL.
+  - hostname: api.epcsj-hub.org
+    path: ^/storage/v1/object/sign/receipts/[^?]+$
+    service: http://127.0.0.1:8000
+
+  # Everything else on the API host (REST, admin, signup, Studio, meta, S3,
+  # realtime, functions) is closed.
+  - hostname: api.epcsj-hub.org
+    service: http_status:404
+
+  - service: http_status:404

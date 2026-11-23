@@ -4,6 +4,9 @@ import { jpegBytes, signIn } from "./helpers";
 // M3 completion check: an approved claim is verified by finance, paid by check,
 // shows as issued to the writer and appears in the monthly CSV.
 test("finance verifies, records a check and exports CSV", async ({ browser }) => {
+  // A different amount each run, so an earlier run's claim (same writer, same
+  // day) does not trigger the same-amount duplicate hint (D34).
+  const amount = `50.${String(10 + (Date.now() % 90))}`;
   const writerCtx = await browser.newContext();
   const writer = await writerCtx.newPage();
   await signIn(writer, "writer@church.test", "/claims/new");
@@ -14,7 +17,7 @@ test("finance verifies, records a check and exports CSV", async ({ browser }) =>
   await writer.locator("#draft-purpose").fill("E2E 재정 흐름");
   await writer.locator("#draft-date").fill("2026-11-20");
   await writer.locator("#line-desc-0").fill("교재");
-  await writer.locator("#line-amount-0").fill("50.25");
+  await writer.locator("#line-amount-0").fill(amount);
   await writer.locator("#receipt-file").setInputFiles({ name: "r.jpg", mimeType: "image/jpeg", buffer: jpegBytes("fin") });
   await expect(writer.locator(".thumbs a")).toHaveCount(1);
   await writer.locator("#submit-claim").click();
@@ -45,10 +48,10 @@ test("finance verifies, records a check and exports CSV", async ({ browser }) =>
   const checkNo = `9${String(Date.now()).slice(-5)}`;
   await fin.locator("#check-no").fill(checkNo);
   // The typed check amount must match the selected claims.
-  await fin.locator("#check-amount").fill("50.00");
+  await fin.locator("#check-amount").fill("49.00");
   await fin.getByRole("button", { name: /수표 기록/ }).click();
   await expect(fin.getByText(/합계와 다릅니다/)).toBeVisible();
-  await fin.locator("#check-amount").fill("50.25");
+  await fin.locator("#check-amount").fill(amount);
   await fin.getByRole("button", { name: /수표 기록/ }).click();
   await expect(fin.getByText(/수표를 기록했습니다/)).toBeVisible();
   const checkRow = fin.locator("li", { hasText: `#${checkNo}` });
@@ -64,7 +67,7 @@ test("finance verifies, records a check and exports CSV", async ({ browser }) =>
   expect(csv.headers()["content-disposition"]).toContain("attachment");
   const text = await csv.text();
   expect(text).toContain(claimNo);
-  expect(text).toContain("50.25");
+  expect(text).toContain(amount);
 
   await writer.reload();
   await expect(writer.getByText("수표 발행됨")).toBeVisible();
