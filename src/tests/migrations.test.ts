@@ -8,7 +8,10 @@ import path from "node:path";
 //   - dropping or renaming a function, table, view, type or schema
 //   - dropping a column, or changing a column's type
 //   - revoking privileges the app's roles use (authenticated, service_role, …)
-//     on a function or table that already existed before this migration
+//     on a function, table, view or sequence that existed before this migration
+// Text inside $$ … $$ bodies is scanned like any other statement. Known limit:
+// SQL assembled at run time (format(), ||) is not seen, so never change
+// privileges or schema through dynamic SQL in a migration.
 // Revoking only from `public`/`anon`, or on objects created in the same
 // migration, is allowed (every grant the app uses is explicit to its role).
 // A breaking change needs the maintenance procedure in doc/deploy.md (9장) and
@@ -46,30 +49,49 @@ function normalize(name: string): string {
   return n.includes(".") ? n : `public.${n}`;
 }
 
-/** Functions and tables a migration creates. */
+/** Functions, procedures, tables, views and sequences a migration creates. */
 export function createdObjects(sql: string): Set<string> {
   const out = new Set<string>();
   for (const s of statements(sql)) {
-    const fn = /\bcreate\s+(or\s+replace\s+)?function\s+([\w."]+)\s*\(/i.exec(s);
-    if (fn) out.add(normalize(fn[2]));
-    const tb = /\bcreate\s+table\s+(if\s+not\s+exists\s+)?([\w."]+)/i.exec(s);
-    if (tb) out.add(normalize(tb[2]));
+    const fn = /\bcreate\s+(or\s+replace\s+)?(function|procedure)\s+([\w."]+)\s*\(/i.exec(s);
+    if (fn) out.add(normalize(fn[3]));
+    const rel =
+      /\bcreate\s+(or\s+replace\s+)?(temp(orary)?\s+|unlogged\s+)?(table|view|materialized\s+view|sequence)\s+(if\s+not\s+exists\s+)?([\w."]+)/i.exec(s);
+    if (rel) out.add(normalize(rel[6]));
   }
   return out;
 }
 
+/** Split "a(int, text), b, c()" on top-level commas only. */
+function topLevelItems(list: string): string[] {
+  const items: string[] = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of list) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      items.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  items.push(cur);
+  return items.map((x) => x.trim()).filter(Boolean);
+}
+
 /** A revoke that can take away a privilege the running app uses. */
 function breakingRevoke(stmt: string, existing: Set<string>): boolean {
-  const m = /^revoke\b[\s\S]*?\bon\s+([\s\S]+?)\s+from\s+([\s\S]+?)(\s+(cascade|restrict))?$/i.exec(stmt);
+  const m = /\brevoke\b[\s\S]*?\bon\s+([\s\S]+?)\s+from\s+([\s\S]+?)(\s+(cascade|restrict))?$/i.exec(stmt);
   if (!m) return false;
   const roles = m[2].split(",").map((r) => r.trim().replace(/"/g, "").toLowerCase());
   if (roles.every((r) => r === "public" || r === "anon")) return false;
   const target = m[1];
   if (/^(all\s+(functions|tables|sequences|routines)\s+in\s+schema|schema)\b/i.test(target)) return true;
-  const names = /^(function|functions|routine|procedure)\b/i.test(target)
-    ? [...target.matchAll(/([\w."]+)\s*\(/g)].map((x) => x[1])
-    : target.replace(/^table\s+/i, "").split(",").map((x) => x.trim());
-  return names.some((n) => existing.has(normalize(n)));
+  // "function f(int), g" / "table t, v" / "sequence s" / bare "t": the name is
+  // the leading identifier of each item; an argument list is optional.
+  const list = target.replace(/^(functions?|routines?|procedures?|table|sequence)\s+/i, "");
+  const names = topLevelItems(list).map((item) => /^[\w."]+/.exec(item)?.[0] ?? "");
+  return names.some((n) => n && existing.has(normalize(n)));
 }
 
 /**
@@ -101,7 +123,7 @@ describe("migrations stay compatible with the running app", () => {
   }
 
   it("detects the patterns it is meant to catch", () => {
-    const existing = new Set(["public.f", "private.g", "public.claims"]);
+    const existing = new Set(["public.f", "private.g", "public.claims", "public.v_open", "public.seq_no"]);
     const breaking = [
       "drop function public.f(uuid);",
       "alter table public.claims drop column late;",
@@ -114,6 +136,14 @@ describe("migrations stay compatible with the running app", () => {
       "revoke execute on all functions in schema private from authenticated;",
       "revoke select on public.claims from authenticated;",
       "revoke select on table claims from service_role;",
+      "revoke execute on function public.f from authenticated;",
+      "revoke execute on function f, private.h(int) from authenticated;",
+      "revoke all on function private.g (uuid) from authenticated;",
+      "revoke select on public.v_open from authenticated;",
+      "revoke usage on sequence public.seq_no from authenticated;",
+      // Statements written out inside $$ bodies are scanned too.
+      "do $$ begin execute 'drop function public.f(uuid)'; end $$;",
+      "do $$ begin revoke execute on function public.f from authenticated; end $$;",
     ];
     for (const s of breaking) expect(breakingStatements(s, existing), s).toHaveLength(1);
 
@@ -127,12 +157,20 @@ describe("migrations stay compatible with the running app", () => {
       "revoke execute on all functions in schema private from public, anon;",
       "revoke all on function private.g() from public, anon;",
       "revoke all on function private.new_helper() from authenticated;",
+      "revoke all on function private.new_helper from authenticated;",
+      "revoke usage on sequence public.new_seq from authenticated;",
     ];
     for (const s of fine) expect(breakingStatements(s, existing), s).toEqual([]);
   });
 
   it("collects created functions and tables", () => {
-    const sql = 'create or replace function private.x(a int) returns int language sql as $$ select 1 $$;\ncreate table if not exists "Claims2" (id int);';
-    expect([...createdObjects(sql)].sort()).toEqual(["private.x", "public.claims2"]);
+    const sql = [
+      "create or replace function private.x(a int) returns int language sql as $$ select 1 $$;",
+      'create table if not exists "Claims2" (id int);',
+      "create or replace view public.v_open as select 1;",
+      "create sequence public.seq_no;",
+      "create materialized view m as select 1;",
+    ].join("\n");
+    expect([...createdObjects(sql)].sort()).toEqual(["private.x", "public.claims2", "public.m", "public.seq_no", "public.v_open"]);
   });
 });
