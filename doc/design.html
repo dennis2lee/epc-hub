@@ -1232,6 +1232,7 @@ grant  execute on function public.act_on_claim to authenticated;</code></pre>
         <tr><td>v5.1</td><td>지급은 수표로만 한다(U2). Zelle·교회 카드 지급 선택지와 관련 필드를 뺐다. 교회 카드 결제는 현재 버전에서 범위 밖(U3)</td></tr>
         <tr><td>v5.2</td><td>구현 M2·M3 레드팀 반영(D11 개정, D17~D26): 영수증은 서버만 저장, 수표 무효·재발행, 결제 기록의 발행자 분리, 발행월 기준 CSV, 확인 뒤 반송, 수표 금액 대조, 화면 한·영 병기. 상세는 <code>doc/decisions.md</code>와 <code>doc/reviews/</code></td></tr>
         <tr><td>v5.3</td><td>구현 M4 레드팀 반영(D27~D39): 초대 토큰 쿠키, 초대 없는 계정 생성 차단, 로그인 다시 연결, 관리자 앱 권한 부여·첫 관리자 설정 함수, 교인 정보 수정, 떠난 교인 청구 사무실 취소, 막힌 건 기준 8일·10일, 같은 날 같은 금액 중복 경고, 장애 중 수표 금지, 주간 암호화 백업, 시험 버킷 운영 제외, 미리보기의 운영 DB 차단. 상세는 <code>doc/decisions.md</code>와 <code>doc/reviews/</code></td></tr>
+        <tr><td>v5.4</td><td>배포 구성 확정(D40): Vercel + Supabase + Resend + 카카오. 주소 <code>claims.epcsj.org</code>, <code>preview.epcsj.org</code>, 메일 <code>notify.epcsj.org</code></td></tr>
       </table></div>
     </section>
 
