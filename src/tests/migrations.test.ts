@@ -21,14 +21,24 @@ import path from "node:path";
 const CHECK_FROM = "20261123000100";
 const DIR = path.resolve(__dirname, "../supabase/migrations");
 
+// An identifier as PostgreSQL accepts it: quoted (any characters, "" for a
+// quote), or unquoted letters of any script, digits, _ and $ (amount2, 금액).
+const PART = String.raw`(?:"(?:[^"]|"")+"|[\p{L}_][\p{L}\p{N}_$]*)`;
+// Optionally schema-qualified, with optional spaces around the dot ("public" . "f").
+const NAME = String.raw`${PART}(?:\s*\.\s*${PART})?`;
+
 const BREAKING = [
   /\bdrop\s+(function|procedure|table|view|materialized\s+view|type|schema)\b/i,
   /\balter\s+table\b[^;]*\bdrop\s+column\b/i,
-  // "drop <name>" without the COLUMN keyword; not "drop default", "drop not null"…
-  /\balter\s+table\b[^;]*\bdrop\s+(?!column\b|constraint\b|default\b|not\b|identity\b|expression\b)[a-z_"]+\s*(cascade|restrict)?\s*(,|;|$)/i,
+  // "drop [if exists] <name>" without the COLUMN keyword; not "drop default",
+  // "drop not null", "drop constraint"…
+  new RegExp(
+    String.raw`\balter\s+table\b[^;]*\bdrop\s+(?!column\b|constraint\b|default\b|not\b|identity\b|expression\b)(if\s+exists\s+)?${PART}\s*(cascade|restrict)?\s*(,|;|$)`,
+    "iu",
+  ),
   /\balter\s+(table|function|view|type)\b[^;]*\brename\b/i,
   // Column type change: "alter column x type …" or "alter column x set data type …".
-  /\balter\s+table\b[^;]*\balter\s+(column\s+)?[a-z_"]+\s+(set\s+data\s+)?type\b/i,
+  new RegExp(String.raw`\balter\s+table\b[^;]*\balter\s+(column\s+)?${PART}\s+(set\s+data\s+)?type\b`, "iu"),
 ];
 
 /** SQL without comments, so explanations may mention the forbidden words. */
@@ -43,11 +53,6 @@ function statements(sql: string): string[] {
     .filter(Boolean);
 }
 
-// An identifier, optionally schema-qualified, as PostgreSQL accepts it:
-// quoted or not, with optional spaces around the dot ("public" . "f").
-const PART = String.raw`(?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*)`;
-const NAME = String.raw`${PART}(?:\s*\.\s*${PART})?`;
-
 /** public.f, "public" . "f" and f all become public.f (bare = public schema). */
 function normalize(name: string): string {
   const n = name.replace(/\s*\.\s*/g, ".").replace(/"/g, "").toLowerCase();
@@ -58,12 +63,12 @@ function normalize(name: string): string {
 export function createdObjects(sql: string): Set<string> {
   const out = new Set<string>();
   for (const s of statements(sql)) {
-    const fn = new RegExp(String.raw`\bcreate\s+(or\s+replace\s+)?(function|procedure)\s+(${NAME})\s*\(`, "i").exec(s);
+    const fn = new RegExp(String.raw`\bcreate\s+(or\s+replace\s+)?(function|procedure)\s+(${NAME})\s*\(`, "iu").exec(s);
     if (fn) out.add(normalize(fn[3]));
     const rel =
       new RegExp(
         String.raw`\bcreate\s+(or\s+replace\s+)?(temp(orary)?\s+|unlogged\s+)?(table|view|materialized\s+view|sequence)\s+(if\s+not\s+exists\s+)?(${NAME})`,
-        "i",
+        "iu",
       ).exec(s);
     if (rel) out.add(normalize(rel[6]));
   }
@@ -98,7 +103,7 @@ function breakingRevoke(stmt: string, existing: Set<string>): boolean {
   // "function f(int), g" / "table t, v" / "sequence s" / bare "t": the name is
   // the leading identifier of each item; an argument list is optional.
   const list = target.replace(/^(functions?|routines?|procedures?|table|sequence)\s+/i, "");
-  const names = topLevelItems(list).map((item) => new RegExp(`^${NAME}`).exec(item)?.[0] ?? "");
+  const names = topLevelItems(list).map((item) => new RegExp(`^${NAME}`, "u").exec(item)?.[0] ?? "");
   return names.some((n) => n && existing.has(normalize(n)));
 }
 
@@ -131,7 +136,7 @@ describe("migrations stay compatible with the running app", () => {
   }
 
   it("detects the patterns it is meant to catch", () => {
-    const existing = new Set(["public.f", "private.g", "public.claims", "public.v_open", "public.seq_no"]);
+    const existing = new Set(["public.f", "private.g", "public.claims", "public.v_open", "public.seq_no", "public.한글함수"]);
     const breaking = [
       "drop function public.f(uuid);",
       "alter table public.claims drop column late;",
@@ -154,6 +159,15 @@ describe("migrations stay compatible with the running app", () => {
       'revoke execute on function "public" . "f" from authenticated;',
       'revoke execute on function "public"."f"(uuid) from authenticated;',
       "revoke select on public .claims from authenticated;",
+      // Column names with digits, spaces (quoted) or non-Latin letters.
+      "alter table public.claims alter column amount2 type numeric;",
+      "alter table public.claims alter amount2 set data type numeric;",
+      'alter table public.claims alter column "amount 2" type numeric;',
+      "alter table public.claims alter column 금액 type numeric;",
+      "alter table public.claims drop amount2;",
+      "alter table public.claims drop if exists amount2;",
+      "alter table public.claims drop 금액 cascade;",
+      "revoke execute on function public.한글함수 from authenticated;",
       // Statements written out inside $$ bodies are scanned too.
       "do $$ begin execute 'drop function public.f(uuid)'; end $$;",
       "do $$ begin revoke execute on function public.f from authenticated; end $$;",
@@ -172,6 +186,10 @@ describe("migrations stay compatible with the running app", () => {
       "revoke all on function private.new_helper() from authenticated;",
       "revoke all on function private.new_helper from authenticated;",
       "revoke usage on sequence public.new_seq from authenticated;",
+      "alter table public.claims alter column amount2 drop default;",
+      "alter table public.claims alter column amount2 set default 0;",
+      "alter table public.claims drop constraint if exists claims_amount2_check;",
+      "alter table public.claims add column amount2 int;",
     ];
     for (const s of fine) expect(breakingStatements(s, existing), s).toEqual([]);
   });
@@ -183,8 +201,16 @@ describe("migrations stay compatible with the running app", () => {
       "create or replace view public.v_open as select 1;",
       "create sequence public.seq_no;",
       "create materialized view m as select 1;",
+      "create table public.영수증2 (id int);",
     ].join("\n");
-    expect([...createdObjects(sql)].sort()).toEqual(["private.x", "public.claims2", "public.m", "public.seq_no", "public.v_open"]);
+    expect([...createdObjects(sql)].sort()).toEqual([
+      "private.x",
+      "public.claims2",
+      "public.m",
+      "public.seq_no",
+      "public.v_open",
+      "public.영수증2",
+    ]);
     expect([...createdObjects('create function "private" . "Y" (a int) returns int language sql as $$ select 1 $$;')]).toEqual([
       "private.y",
     ]);
